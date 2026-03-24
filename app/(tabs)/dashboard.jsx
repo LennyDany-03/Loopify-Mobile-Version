@@ -132,7 +132,7 @@ export default function Dashboard() {
         )}
       </ScrollView>
 
-      <View className="absolute bottom-6 right-6 z-50">
+      <View style={{ position: "absolute", bottom: 110, right: 24, zIndex: 50 }}>
         <TouchableOpacity
           onPress={() => router.push("/loops/new")}
           activeOpacity={0.85}

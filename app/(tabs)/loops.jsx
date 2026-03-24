@@ -237,7 +237,7 @@ export default function Loops() {
         />
       </ScrollView>
 
-      <View className="absolute bottom-6 right-6 z-50">
+      <View style={{ position: "absolute", bottom: 110, right: 24, zIndex: 50 }}>
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => router.push("/loops/new")}

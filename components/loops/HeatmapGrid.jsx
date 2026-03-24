@@ -1,28 +1,31 @@
 import { View, Text, ScrollView } from "react-native";
 
-function getCellLevel(entry) {
+function getCellLevel(entry, targetValue, targetType) {
   const count = entry?.count ?? entry?.level ?? 0;
 
-  if (count >= 4) {
-    return 1;
+  if (targetType === "boolean") {
+    return count >= 1 ? 1 : 0;
   }
 
-  if (count >= 3) {
-    return 0.8;
+  const target = Number(targetValue);
+  if (target > 0) {
+    const ratio = count / target;
+    if (ratio >= 1) return 1;
+    if (ratio >= 0.75) return 0.8;
+    if (ratio >= 0.5) return 0.6;
+    if (ratio >= 0.25) return 0.4;
+    return ratio > 0 ? 0.2 : 0;
   }
 
-  if (count >= 2) {
-    return 0.6;
-  }
-
-  if (count >= 1) {
-    return 0.4;
-  }
-
+  // Fallback logic for legacy data or missing targets
+  if (count >= 4) return 1;
+  if (count >= 3) return 0.8;
+  if (count >= 2) return 0.6;
+  if (count >= 1) return 0.4;
   return 0;
 }
 
-export default function HeatmapGrid({ data = [], color = "#4F8EF7" }) {
+export default function HeatmapGrid({ data = [], color = "#4F8EF7", targetValue, targetType }) {
   const cells = data.length
     ? data
     : Array.from({ length: 365 }, (_, index) => ({
@@ -71,7 +74,7 @@ export default function HeatmapGrid({ data = [], color = "#4F8EF7" }) {
           {columns.map((column, columnIndex) => (
             <View key={columnIndex} className="gap-[3px]">
               {column.map((entry) => {
-                const level = getCellLevel(entry);
+                const level = getCellLevel(entry, targetValue, targetType);
 
                 return (
                   <View

@@ -109,7 +109,7 @@ function formatLastCheckin(dateValue) {
   });
 }
 
-function buildLoopWeeklyBars(weeks = []) {
+function buildLoopWeeklyBars(weeks = [], targetValue = null) {
   const weekKeys = getRecentWeekKeys(7);
   const countsByWeek = new Map(weeks.map((entry) => [entry.week, entry.count || 0]));
 
@@ -120,7 +120,7 @@ function buildLoopWeeklyBars(weeks = []) {
     value: 0,
   }));
 
-  return buildWeeklyBars(trendData, 7);
+  return buildWeeklyBars(trendData, 7, targetValue);
 }
 
 function getTodayProgressLabel(loop, progress) {
@@ -214,7 +214,10 @@ export default function LoopDetail() {
 
       setLoop(mergedLoop);
       setHeatmap(heatmapRes.data?.heatmap || []);
-      setWeeklyBars(buildLoopWeeklyBars(weeklyRes.data?.weeks || []));
+      setWeeklyBars(buildLoopWeeklyBars(
+        weeklyRes.data?.weeks || [], 
+        loopRes.data?.target_type === "boolean" ? 1 : loopRes.data?.target_value
+      ));
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to load loop details.");
     } finally {
@@ -626,7 +629,12 @@ export default function LoopDetail() {
           </View>
         </View>
 
-        <HeatmapGrid data={heatmap} color={accentColor} />
+        <HeatmapGrid 
+          data={heatmap} 
+          color={accentColor} 
+          targetValue={loop.target_value} 
+          targetType={loop.target_type} 
+        />
       </ScrollView>
 
       <View className="px-4 pb-4 pt-3 border-t border-white/5 bg-[#050508]">
