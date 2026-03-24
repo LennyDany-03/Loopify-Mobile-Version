@@ -1,0 +1,27 @@
+import { ActivityIndicator, View } from "react-native";
+import { Redirect, Stack } from "expo-router";
+import useAuthStore from "../../lib/store/useAuthStore";
+
+export default function AuthLayout() {
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
+  const isReady = useAuthStore((state) => state.isReady);
+
+  if (!isReady) {
+    return (
+      <View className="flex-1 items-center justify-center bg-[#050508]">
+        <ActivityIndicator size="large" color="#4F8EF7" />
+      </View>
+    );
+  }
+
+  if (isLoggedIn) {
+    return <Redirect href="/(tabs)/dashboard" />;
+  }
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="sign-in" />
+      <Stack.Screen name="sign-up" />
+    </Stack>
+  );
+}

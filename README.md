@@ -1,50 +1,99 @@
-# Welcome to your Expo app 👋
+# Loopify
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Loopify is a habit and routine tracking product with:
 
-## Get started
+- An Expo Router React Native frontend in [`/app`](/C:/Users/lenny/OneDrive/Documents/Code/native/loopify/app)
+- A FastAPI backend in [`/backend`](/C:/Users/lenny/OneDrive/Documents/Code/native/loopify/backend)
+- Supabase used for auth and data storage
 
-1. Install dependencies
+The repository is currently in a transition state. Auth is wired end to end, but most non-auth frontend screens still render prototype data instead of live backend data.
 
-   ```bash
-   npm install
-   ```
+## Current Status
 
-2. Start the app
+- Frontend auth flow exists and uses secure token storage
+- Backend auth, loops, checkins, analytics, and profile endpoints exist
+- Dashboard, loops, analysis, and loop detail screens are mostly UI prototypes
+- There are currently no automated tests in the repo
+- The legacy Expo starter README has been removed and replaced with project-specific docs
 
-   ```bash
-   npx expo start
-   ```
+## Project Docs
 
-In the output, you'll find options to open the app in a
+- [Architecture](/C:/Users/lenny/OneDrive/Documents/Code/native/loopify/docs/ARCHITECTURE.md)
+- [Feature Tracker](/C:/Users/lenny/OneDrive/Documents/Code/native/loopify/docs/FEATURE_TRACKER.md)
+- [Roadmap](/C:/Users/lenny/OneDrive/Documents/Code/native/loopify/docs/ROADMAP.md)
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Tech Stack
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+- Expo 54
+- React 19
+- Expo Router
+- NativeWind
+- Zustand
+- FastAPI
+- Supabase
 
-## Get a fresh project
+## Frontend Setup
 
-When you're ready, run:
+1. Install dependencies:
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+2. Set the API base URL for the app:
 
-## Learn more
+```bash
+EXPO_PUBLIC_API_URL=http://YOUR_MACHINE_IP:8000
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+`http://localhost:8000` only works for web or simulators running on the same machine. Physical devices need a reachable host/IP.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+3. Start Expo:
 
-## Join the community
+```bash
+npx expo start
+```
 
-Join our community of developers creating universal apps.
+## Backend Setup
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+1. Create [`backend/.env`](/C:/Users/lenny/OneDrive/Documents/Code/native/loopify/backend/.env) with:
+
+```bash
+SUPABASE_URL=...
+SUPABASE_SERVICE_KEY=...
+JWT_SECRET=...
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+REFRESH_TOKEN_EXPIRE_DAYS=30
+ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+```
+
+2. Install backend dependencies:
+
+```bash
+cd backend
+pip install -r requirements.txt
+```
+
+3. Run the API:
+
+```bash
+uvicorn main:app --reload
+```
+
+API docs are available at `/docs` when the server is running.
+
+## High-Priority Gaps
+
+- Live loop data is not connected to the main product screens
+- Loop detail routes are not protected the same way as the tab routes
+- Token refresh/logout is stateless and does not provide real revocation
+- Password rules are inconsistent between frontend and backend
+- Test coverage is missing
+
+## Recommended Next Milestones
+
+1. Replace prototype screen data with store-backed API data.
+2. Add create/edit loop flows and real checkin submission from the UI.
+3. Harden auth and session handling.
+4. Add automated frontend and backend tests.

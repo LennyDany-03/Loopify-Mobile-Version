@@ -1,0 +1,261 @@
+import { useEffect, useRef, useState } from "react";
+import { ScrollView, View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Feather, Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import ActiveLoopCard from "../../components/loops/ActiveLoopCard";
+import WeeklySummaryCard from "../../components/loops/WeeklySummaryCard";
+import useLoopStore from "../../lib/store/useLoopStore";
+import { analyticsAPI } from "../../lib/api";
+import {
+  aggregateWeeklyCounts,
+  buildWeeklyBars,
+  normalizeLoop,
+} from "../../lib/utils/loopMetrics";
+
+export default function Loops() {
+  const router = useRouter();
+  const [activeCategory, setActiveCategory] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [weeklyBars, setWeeklyBars] = useState([]);
+  const [weeklyHeadline, setWeeklyHeadline] = useState(
+    "Weekly momentum will show up after your first few check-ins."
+  );
+  const [weeklySubhead, setWeeklySubhead] = useState("Recent weeks");
+  const [isWeeklyLoading, setIsWeeklyLoading] = useState(false);
+
+  const loops = useLoopStore((state) => state.loops);
+  const todayCheckins = useLoopStore((state) => state.todayCheckins);
+  const isLoading = useLoopStore((state) => state.isLoading);
+  const fetchLoops = useLoopStore((state) => state.fetchLoops);
+  const fetchSummary = useLoopStore((state) => state.fetchSummary);
+  const fetchTodayCheckins = useLoopStore((state) => state.fetchTodayCheckins);
+  const deleteLoop = useLoopStore((state) => state.deleteLoop);
+  const hasLoaded = useRef(false);
+
+  useEffect(() => {
+    if (hasLoaded.current) {
+      return;
+    }
+
+    hasLoaded.current = true;
+    fetchLoops();
+    fetchTodayCheckins();
+  }, [fetchLoops, fetchTodayCheckins]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadWeeklySummary() {
+      if (!loops.length) {
+        setWeeklyBars([]);
+        setWeeklyHeadline("Weekly momentum will show up after your first few check-ins.");
+        setWeeklySubhead("Recent weeks");
+        return;
+      }
+
+      setIsWeeklyLoading(true);
+
+      try {
+        const weeklyData = await Promise.all(
+          loops.map(async (loop) => {
+            const res = await analyticsAPI.weekly(loop.id);
+            return { loop, weeks: res.data?.weeks || [] };
+          })
+        );
+
+        if (isCancelled) {
+          return;
+        }
+
+        const trendData = aggregateWeeklyCounts(weeklyData);
+        const bars = buildWeeklyBars(trendData);
+        const totalRecentCheckins = bars.reduce((sum, item) => sum + item.count, 0);
+        const activeWeeks = bars.filter((item) => item.count > 0).length;
+
+        setWeeklyBars(bars);
+
+        if (totalRecentCheckins > 0) {
+          setWeeklyHeadline(
+            `${totalRecentCheckins} check-ins across the last ${bars.length} weeks.`
+          );
+          setWeeklySubhead(
+            activeWeeks > 0 ? `${activeWeeks} active weeks` : "Recent weeks"
+          );
+        } else {
+          setWeeklyHeadline("No weekly activity yet. Your next check-in starts the curve.");
+          setWeeklySubhead("Recent weeks");
+        }
+      } catch {
+        if (!isCancelled) {
+          setWeeklyBars([]);
+          setWeeklyHeadline("Weekly summary is unavailable right now.");
+          setWeeklySubhead("Recent weeks");
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsWeeklyLoading(false);
+        }
+      }
+    }
+
+    loadWeeklySummary();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [loops]);
+
+  const maxTotalCheckins = Math.max(...loops.map((loop) => loop.total_checkins || 0), 0);
+  const normalizedLoops = loops.map((loop) =>
+    normalizeLoop(loop, { todayCheckins, maxTotalCheckins })
+  );
+  const categories = ["All", ...new Set(normalizedLoops.map((loop) => loop.category || "General"))];
+  const filteredLoops = normalizedLoops.filter((loop) => {
+    const matchesCategory =
+      activeCategory === "All" || (loop.category || "General") === activeCategory;
+    const matchesSearch = (loop.name || "")
+      .toLowerCase()
+      .includes(searchQuery.trim().toLowerCase());
+
+    return matchesCategory && matchesSearch;
+  });
+
+  async function handleDeleteLoop(loop) {
+    const result = await deleteLoop(loop.id);
+
+    if (result.success) {
+      await Promise.all([fetchSummary(), fetchTodayCheckins()]);
+      return;
+    }
+
+    Alert.alert("Delete failed", result.error || "Unable to delete this loop right now.");
+  }
+
+  function promptDeleteLoop(loop) {
+    Alert.alert(
+      "Delete loop now?",
+      `${loop.name} will be removed from your active loop list.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete now",
+          style: "destructive",
+          onPress: () => {
+            handleDeleteLoop(loop);
+          },
+        },
+      ]
+    );
+  }
+
+  return (
+    <SafeAreaView className="flex-1 bg-[#050508]">
+      <View className="flex-row items-center justify-between px-6 pt-4 pb-4">
+        <View className="flex-row items-center gap-2">
+          <Ionicons name="speedometer" size={26} color="#4F8EF7" />
+          <Text className="text-2xl font-bold text-[#4F8EF7] tracking-tight ml-1">My Loops</Text>
+        </View>
+        <View className="w-9 h-9 rounded-full bg-[#11131A] border border-[#2A3B4C] items-center justify-center overflow-hidden">
+          <View className="w-full h-full bg-[#3d7068] items-center justify-end">
+            <View className="w-5 h-5 rounded-full bg-[#ffeed9] mb-0.5" />
+          </View>
+        </View>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 60 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View className="flex-row items-center bg-[#11131A] rounded-2xl px-4 py-3.5 mb-6 border border-white/5">
+          <Feather name="search" size={18} color="#ffffff40" />
+          <TextInput
+            className="flex-1 text-white ml-3 font-semibold text-sm"
+            placeholder="Search your loops..."
+            placeholderTextColor="#ffffff40"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mb-8"
+          contentContainerStyle={{ gap: 10 }}
+        >
+          {categories.map((cat) => (
+            <TouchableOpacity
+              key={cat}
+              onPress={() => setActiveCategory(cat)}
+              className={`px-5 py-2.5 rounded-[20px] flex-row items-center ${
+                activeCategory === cat
+                  ? "bg-[#151D30] border border-[#4F8EF7]/20"
+                  : "bg-[#11131A] border border-transparent"
+              }`}
+            >
+              {activeCategory === cat && <View className="w-2 h-2 rounded-full bg-[#4F8EF7] mr-2" />}
+              <Text
+                className={`text-sm font-semibold tracking-wide ${
+                  activeCategory === cat ? "text-white" : "text-white/50"
+                }`}
+              >
+                {cat}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <View className="flex-row justify-between items-end mb-4 px-1">
+          <View>
+            <Text className="text-[#4F8EF7] text-[10px] font-bold tracking-widest uppercase">
+              Active Momentum
+            </Text>
+            <Text className="text-white/35 text-[10px] font-semibold tracking-wider mt-1">
+              Long press any loop to delete it
+            </Text>
+          </View>
+          <Text className="text-white/50 text-[10px] font-semibold tracking-wider">
+            {filteredLoops.length} Active
+          </Text>
+        </View>
+
+        <View className="mb-4">
+          {isLoading && !normalizedLoops.length ? (
+            <View className="py-12 items-center">
+              <ActivityIndicator size="large" color="#4F8EF7" />
+            </View>
+          ) : filteredLoops.length ? (
+            filteredLoops.map((loop) => (
+              <ActiveLoopCard
+                key={loop.id}
+                loop={loop}
+                onLongPressLoop={promptDeleteLoop}
+              />
+            ))
+          ) : (
+            <View className="bg-[#0D1017] rounded-[28px] border border-white/5 p-8 items-center">
+              <Text className="text-white text-base font-semibold">No loops match this filter.</Text>
+            </View>
+          )}
+        </View>
+
+        <WeeklySummaryCard
+          bars={weeklyBars}
+          headline={isWeeklyLoading ? "Loading weekly activity..." : weeklyHeadline}
+          subhead={weeklySubhead}
+        />
+      </ScrollView>
+
+      <View className="absolute bottom-6 right-6 z-50">
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push("/loops/new")}
+          className="w-16 h-16 bg-[#72A6FF] shadow-2xl shadow-[#4F8EF7]/50 rounded-full items-center justify-center"
+        >
+          <Feather name="plus" size={32} color="#0B0D14" />
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+}
