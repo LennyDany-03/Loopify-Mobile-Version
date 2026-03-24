@@ -7,6 +7,7 @@ import ActiveLoopCard from "../../components/loops/ActiveLoopCard";
 import WeeklySummaryCard from "../../components/loops/WeeklySummaryCard";
 import { analyticsAPI } from "../../lib/api";
 import useLoopStore from "../../lib/store/useLoopStore";
+import DeleteLoopModal from "../../components/loops/DeleteLoopModal";
 import {
     aggregateWeeklyCounts,
     buildWeeklyBars,
@@ -31,6 +32,8 @@ export default function Loops() {
   const fetchSummary = useLoopStore((state) => state.fetchSummary);
   const fetchTodayCheckins = useLoopStore((state) => state.fetchTodayCheckins);
   const deleteLoop = useLoopStore((state) => state.deleteLoop);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [loopToDelete, setLoopToDelete] = useState(null);
   const hasLoaded = useRef(false);
 
   useEffect(() => {
@@ -133,20 +136,8 @@ export default function Loops() {
   }
 
   function promptDeleteLoop(loop) {
-    Alert.alert(
-      "Delete loop now?",
-      `${loop.name} will be removed from your active loop list.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete now",
-          style: "destructive",
-          onPress: () => {
-            handleDeleteLoop(loop);
-          },
-        },
-      ]
-    );
+    setLoopToDelete(loop);
+    setIsDeleteModalVisible(true);
   }
 
   return (
@@ -255,6 +246,19 @@ export default function Loops() {
           <Feather name="plus" size={32} color="#0B0D14" />
         </TouchableOpacity>
       </View>
+      <DeleteLoopModal
+        isVisible={isDeleteModalVisible}
+        loopName={loopToDelete?.name}
+        onCancel={() => {
+          setIsDeleteModalVisible(false);
+          setLoopToDelete(null);
+        }}
+        onConfirm={() => {
+          setIsDeleteModalVisible(false);
+          handleDeleteLoop(loopToDelete);
+          setLoopToDelete(null);
+        }}
+      />
     </SafeAreaView>
   );
 }

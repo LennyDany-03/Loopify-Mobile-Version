@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import GreetingHeader from "../../components/dashboard/GreetingHeader";
@@ -8,6 +8,7 @@ import StatCards from "../../components/dashboard/StatCards";
 import TodayLoopList from "../../components/dashboard/TodayLoopList";
 import useAuthStore from "../../lib/store/useAuthStore";
 import useLoopStore from "../../lib/store/useLoopStore";
+import DeleteLoopModal from "../../components/loops/DeleteLoopModal";
 import { isLoopCompletedToday, normalizeLoop } from "../../lib/utils/loopMetrics";
 
 export default function Dashboard() {
@@ -23,6 +24,8 @@ export default function Dashboard() {
   const fetchTodayCheckins = useLoopStore((state) => state.fetchTodayCheckins);
   const checkinLoop = useLoopStore((state) => state.checkinLoop);
   const deleteLoop = useLoopStore((state) => state.deleteLoop);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [loopToDelete, setLoopToDelete] = useState(null);
   const hasLoaded = useRef(false);
 
   useEffect(() => {
@@ -69,20 +72,8 @@ export default function Dashboard() {
   }
 
   function promptDeleteLoop(loop) {
-    Alert.alert(
-      "Delete loop now?",
-      `Long press detected on ${loop.name}. This will remove it from your active loops.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete now",
-          style: "destructive",
-          onPress: () => {
-            handleDeleteLoop(loop);
-          },
-        },
-      ]
-    );
+    setLoopToDelete(loop);
+    setIsDeleteModalVisible(true);
   }
 
   return (
@@ -150,6 +141,19 @@ export default function Dashboard() {
           <Text className="text-[#1A243A] text-3xl font-light mb-1">+</Text>
         </TouchableOpacity>
       </View>
+      <DeleteLoopModal
+        isVisible={isDeleteModalVisible}
+        loopName={loopToDelete?.name}
+        onCancel={() => {
+          setIsDeleteModalVisible(false);
+          setLoopToDelete(null);
+        }}
+        onConfirm={() => {
+          setIsDeleteModalVisible(false);
+          handleDeleteLoop(loopToDelete);
+          setLoopToDelete(null);
+        }}
+      />
     </SafeAreaView>
   );
 }

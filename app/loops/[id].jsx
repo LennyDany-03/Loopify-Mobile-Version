@@ -16,6 +16,7 @@ import HeatmapGrid from "../../components/loops/HeatmapGrid";
 import SlideToComplete from "../../components/loops/SlideToComplete";
 import LoopIcon from "../../components/ui/LoopIcon";
 import useLoopStore from "../../lib/store/useLoopStore";
+import DeleteLoopModal from "../../components/loops/DeleteLoopModal";
 import { analyticsAPI, loopsAPI } from "../../lib/api";
 import {
   buildWeeklyBars,
@@ -182,6 +183,7 @@ export default function LoopDetail() {
   const [weeklyBars, setWeeklyBars] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [error, setError] = useState(null);
 
   const loadLoopDetail = useCallback(async () => {
@@ -260,21 +262,7 @@ export default function LoopDetail() {
     if (!loop) {
       return;
     }
-
-    Alert.alert(
-      "Delete loop now?",
-      `${loop.name} will be removed from your active loops.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete now",
-          style: "destructive",
-          onPress: () => {
-            handleDeleteLoop();
-          },
-        },
-      ]
-    );
+    setIsDeleteModalVisible(true);
   }
 
   if (isLoading) {
@@ -663,6 +651,15 @@ export default function LoopDetail() {
           accentColor={accentColor}
         />
       </View>
+      <DeleteLoopModal
+        isVisible={isDeleteModalVisible}
+        loopName={loop.name}
+        onCancel={() => setIsDeleteModalVisible(false)}
+        onConfirm={() => {
+          setIsDeleteModalVisible(false);
+          handleDeleteLoop();
+        }}
+      />
     </SafeAreaView>
   );
 }
