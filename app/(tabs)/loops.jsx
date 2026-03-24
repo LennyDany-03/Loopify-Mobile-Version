@@ -1,16 +1,16 @@
-import { useEffect, useRef, useState } from "react";
-import { ScrollView, View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Feather, Ionicons } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import ActiveLoopCard from "../../components/loops/ActiveLoopCard";
 import WeeklySummaryCard from "../../components/loops/WeeklySummaryCard";
-import useLoopStore from "../../lib/store/useLoopStore";
 import { analyticsAPI } from "../../lib/api";
+import useLoopStore from "../../lib/store/useLoopStore";
 import {
-  aggregateWeeklyCounts,
-  buildWeeklyBars,
-  normalizeLoop,
+    aggregateWeeklyCounts,
+    buildWeeklyBars,
+    normalizeLoop,
 } from "../../lib/utils/loopMetrics";
 
 export default function Loops() {
@@ -152,14 +152,13 @@ export default function Loops() {
   return (
     <SafeAreaView className="flex-1 bg-[#050508]">
       <View className="flex-row items-center justify-between px-6 pt-4 pb-4">
-        <View className="flex-row items-center gap-2">
-          <Ionicons name="speedometer" size={26} color="#4F8EF7" />
-          <Text className="text-2xl font-bold text-[#4F8EF7] tracking-tight ml-1">My Loops</Text>
-        </View>
-        <View className="w-9 h-9 rounded-full bg-[#11131A] border border-[#2A3B4C] items-center justify-center overflow-hidden">
-          <View className="w-full h-full bg-[#3d7068] items-center justify-end">
-            <View className="w-5 h-5 rounded-full bg-[#ffeed9] mb-0.5" />
-          </View>
+        <View className="flex-row items-center gap-3">
+          <Image 
+            source={require("../../assets/images/image.png")} 
+            className="w-8 h-8"
+            resizeMode="contain"
+          />
+          <Text className="text-2xl font-bold text-[#4F8EF7] tracking-tight">My Loops</Text>
         </View>
       </View>
 

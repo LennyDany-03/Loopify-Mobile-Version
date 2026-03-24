@@ -1,17 +1,17 @@
-import { useEffect, useRef, useState } from "react";
-import { ScrollView, View, Text, ActivityIndicator } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Image, ScrollView, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import CompletionRing from "../../components/analysis/CompletionRing";
 import FocusAreas from "../../components/analysis/FocusAreas";
 import LoopTrendsChart from "../../components/analysis/LoopTrendsChart";
 import RecentLoopDetail from "../../components/analysis/RecentLoopDetail";
-import useLoopStore from "../../lib/store/useLoopStore";
 import { analyticsAPI } from "../../lib/api";
+import useLoopStore from "../../lib/store/useLoopStore";
 import {
-  aggregateWeeklyCounts,
-  buildCategoryPercents,
-  buildRecentLoopInsights,
+    aggregateWeeklyCounts,
+    buildCategoryPercents,
+    buildRecentLoopInsights,
 } from "../../lib/utils/loopMetrics";
 
 export default function Analysis() {
@@ -84,14 +84,13 @@ export default function Analysis() {
     <SafeAreaView className="flex-1 bg-[#050508]">
       <View className="flex-row items-center justify-between px-6 py-4">
         <View className="flex-row items-center gap-3">
-          <View className="w-10 h-10 rounded-full bg-[#1A1C24] border border-white/5 items-center justify-center overflow-hidden">
-            <View className="w-full h-full bg-[#3d7068] items-center justify-end">
-              <View className="w-5 h-5 rounded-full bg-[#ffeed9] mb-1" />
-            </View>
-          </View>
+          <Image 
+            source={require("../../assets/images/image.png")} 
+            className="w-8 h-8"
+            resizeMode="contain"
+          />
           <Text className="text-xl font-bold text-[#4F8EF7] italic tracking-tight">Loopify</Text>
         </View>
-        <Ionicons name="flash" size={24} color="#ffffff60" />
       </View>
 
       <ScrollView

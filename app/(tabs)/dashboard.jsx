@@ -1,10 +1,10 @@
-import { useEffect, useRef } from "react";
-import { ActivityIndicator, Alert, ScrollView, View, Text, TouchableOpacity } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { useEffect, useRef } from "react";
+import { ActivityIndicator, Alert, Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import GreetingHeader from "../../components/dashboard/GreetingHeader";
-import StatCards from "../../components/dashboard/StatCards";
 import MiniStats from "../../components/dashboard/MiniStats";
+import StatCards from "../../components/dashboard/StatCards";
 import TodayLoopList from "../../components/dashboard/TodayLoopList";
 import useAuthStore from "../../lib/store/useAuthStore";
 import useLoopStore from "../../lib/store/useLoopStore";
@@ -89,15 +89,13 @@ export default function Dashboard() {
     <SafeAreaView className="flex-1 bg-[#050508]">
       <View className="flex-row items-center justify-between px-6 pt-4 pb-2">
         <View className="flex-row items-center gap-3">
-          <View className="w-8 h-8 rounded-full bg-[#11131A] border border-white/5 items-center justify-center overflow-hidden">
-            <View className="w-full h-full bg-[#ffeed9] items-center justify-end">
-              <View className="w-4 h-4 rounded-full bg-[#2c1f17] mb-1" />
-              <View className="w-6 h-6 rounded-t-full bg-[#4F8EF7]" />
-            </View>
-          </View>
+          <Image 
+            source={require("../../assets/images/image.png")} 
+            className="w-8 h-8"
+            resizeMode="contain"
+          />
           <Text className="text-xl font-bold text-[#4F8EF7] italic tracking-tight">Loopify</Text>
         </View>
-        <Text className="text-[#4F8EF7] text-xl">+</Text>
       </View>
 
       <ScrollView

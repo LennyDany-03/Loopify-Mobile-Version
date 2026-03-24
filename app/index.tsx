@@ -1,5 +1,5 @@
 import { Redirect } from "expo-router";
-import { ActivityIndicator, View } from "react-native";
+import { Image, Text, View } from "react-native";
 import useAuthStore from "../lib/store/useAuthStore";
 
 export default function App() {
@@ -8,8 +8,13 @@ export default function App() {
 
   if (!isReady) {
     return (
-      <View className="flex-1 items-center justify-center bg-[#050508]">
-        <ActivityIndicator size="large" color="#4F8EF7" />
+      <View className="flex-1 items-center justify-center bg-[#0f0f23]">
+        <Image 
+          source={require("../assets/images/image.png")} 
+          className="w-24 h-24 mb-4"
+          resizeMode="contain"
+        />
+        <Text className="text-white text-2xl font-bold">Loopify</Text>
       </View>
     );
   }
