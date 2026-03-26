@@ -24,7 +24,14 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
-def raise_supabase_auth_error(exc: AuthError) -> None:
+class GoogleSignInRequest(BaseModel):
+    id_token: str
+
+
+def raise_supabase_auth_error(
+    exc: AuthError,
+    unauthorized_detail: str = "Invalid email or password.",
+) -> None:
     message = getattr(exc, "message", None) or str(exc)
     lowered = message.lower()
     status_code = getattr(exc, "status", status.HTTP_400_BAD_REQUEST)
@@ -50,10 +57,31 @@ def raise_supabase_auth_error(exc: AuthError) -> None:
     if status_code == status.HTTP_401_UNAUTHORIZED:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password.",
+            detail=unauthorized_detail,
         ) from exc
 
     raise HTTPException(status_code=status_code, detail=message) from exc
+
+
+def build_auth_response(user_id: str, message: str) -> dict:
+    return {
+        "message": message,
+        "user_id": user_id,
+        "access_token": create_access_token(user_id),
+        "refresh_token": create_refresh_token(user_id),
+    }
+
+
+def upsert_profile(user_id: str, full_name: str | None = None, avatar_url: str | None = None) -> None:
+    payload = {"id": user_id}
+
+    if full_name:
+        payload["full_name"] = full_name
+
+    if avatar_url:
+        payload["avatar_url"] = avatar_url
+
+    supabase.table("profiles").upsert(payload).execute()
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
@@ -92,24 +120,14 @@ async def register(body: RegisterRequest):
     user_id = res.user.id
 
     try:
-        supabase.table("profiles").upsert(
-            {
-                "id": user_id,
-                "full_name": body.full_name,
-            }
-        ).execute()
+        upsert_profile(user_id, full_name=body.full_name)
     except APIError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"User was created, but profile setup failed: {exc.message}",
         ) from exc
 
-    return {
-        "message": "Registration successful",
-        "user_id": user_id,
-        "access_token": create_access_token(user_id),
-        "refresh_token": create_refresh_token(user_id),
-    }
+    return build_auth_response(user_id, "Registration successful")
 
 
 @router.post("/login")
@@ -136,12 +154,47 @@ async def login(body: LoginRequest):
 
     user_id = res.user.id
 
-    return {
-        "message": "Login successful",
-        "user_id": user_id,
-        "access_token": create_access_token(user_id),
-        "refresh_token": create_refresh_token(user_id),
-    }
+    return build_auth_response(user_id, "Login successful")
+
+
+@router.post("/google")
+async def google_sign_in(body: GoogleSignInRequest):
+    """
+    Login or register with a Google ID token issued by the native app flow.
+    """
+    try:
+        res = supabase.auth.sign_in_with_id_token(
+            {
+                "provider": "google",
+                "token": body.id_token,
+            }
+        )
+    except (AuthApiError, AuthError) as exc:
+        raise_supabase_auth_error(
+            exc,
+            unauthorized_detail="Google sign-in failed. Check your Google client IDs and Supabase provider settings.",
+        )
+
+    if res.user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Google sign-in failed.",
+        )
+
+    user_id = res.user.id
+    user_metadata = getattr(res.user, "user_metadata", None) or {}
+    full_name = user_metadata.get("full_name") or user_metadata.get("name")
+    avatar_url = user_metadata.get("avatar_url") or user_metadata.get("picture")
+
+    try:
+        upsert_profile(user_id, full_name=full_name, avatar_url=avatar_url)
+    except APIError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Google sign-in succeeded, but profile setup failed: {exc.message}",
+        ) from exc
+
+    return build_auth_response(user_id, "Google sign-in successful")
 
 
 @router.post("/refresh")

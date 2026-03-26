@@ -3,14 +3,22 @@ import { Link } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import SignInForm from "../../components/auth/SignInForm";
+import GoogleAuthButton from "../../components/auth/GoogleAuthButton";
+import { getGoogleAuthAvailability } from "../../lib/googleAuth";
 import { useAuth } from "../../lib/hooks/useAuth";
 
 export default function SignIn() {
-  const { login, isLoading, error, clearError } = useAuth();
+  const { login, loginWithGoogle, isLoading, error, clearError } = useAuth();
+  const googleAuth = getGoogleAuthAvailability();
 
   const handleSignIn = async (form) => {
     clearError();
     await login(form);
+  };
+
+  const handleGoogleSignIn = async () => {
+    clearError();
+    await loginWithGoogle();
   };
 
   return (
@@ -39,14 +47,12 @@ export default function SignIn() {
             <View className="flex-1 h-[1px] bg-white/5" />
           </View>
 
-          <TouchableOpacity
-            className="w-full flex-row items-center justify-center bg-[#13151A] rounded-2xl py-4 border border-white/5"
-            activeOpacity={0.7}
-          >
-            <Text className="text-white font-semibold">
-              <Text className="text-[#DB4437] font-bold">G</Text>  Continue with Google
-            </Text>
-          </TouchableOpacity>
+          <GoogleAuthButton
+            onPress={handleGoogleSignIn}
+            loading={isLoading}
+            disabled={!googleAuth.available}
+            helperText={!googleAuth.available ? googleAuth.error : null}
+          />
         </View>
 
         <View className="flex-1" />
