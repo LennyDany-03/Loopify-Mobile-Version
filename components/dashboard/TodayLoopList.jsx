@@ -6,9 +6,7 @@ import { isLoopCompletedToday } from "../../lib/utils/loopMetrics";
 export default function TodayLoopList({
   loops = [],
   todayCheckins = {},
-  onCheckin,
   onLongPressLoop,
-  onAddLoop,
 }) {
   const router = useRouter();
 
@@ -37,7 +35,6 @@ export default function TodayLoopList({
             key={loop.id}
             loop={loop}
             isChecked={isLoopCompletedToday(loop, todayCheckins)}
-            onCheckin={onCheckin}
             onLongPressLoop={onLongPressLoop}
             onPress={() => router.push(`/loops/${loop.id}`)}
           />
