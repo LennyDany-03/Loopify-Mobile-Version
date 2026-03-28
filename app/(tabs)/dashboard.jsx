@@ -39,9 +39,8 @@ export default function Dashboard() {
     fetchTodayCheckins();
   }, [fetchLoops, fetchSummary, fetchTodayCheckins]);
 
-  const maxTotalCheckins = Math.max(...loops.map((loop) => loop.total_checkins || 0), 0);
   const displayLoops = loops.map((loop) =>
-    normalizeLoop(loop, { todayCheckins, maxTotalCheckins })
+    normalizeLoop(loop, { todayCheckins })
   );
   const completedToday = displayLoops.filter((loop) =>
     isLoopCompletedToday(loop, todayCheckins)
@@ -98,7 +97,9 @@ export default function Dashboard() {
         <View className="mb-4 mt-2">
           <StatCards
             totalLoops={summary?.total_loops ?? displayLoops.length}
-            streakCount={summary?.best_streak_overall ?? 0}
+            streakCount={summary?.current_streak_overall ?? 0}
+            bestStreak={summary?.best_streak_overall ?? 0}
+            activeLoops={summary?.loops_on_streak_today ?? 0}
           />
         </View>
 

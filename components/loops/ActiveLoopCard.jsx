@@ -9,12 +9,10 @@ export default function ActiveLoopCard({ loop, onLongPressLoop }) {
   const router = useRouter();
   const suppressNextPress = useRef(false);
 
-  // Draw the progress ring
   const size = 64;
   const strokeWidth = 5;
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
-  // Calculate completion percentage: simple mock for preview
   const progress = loop.completion_rate / 100 || 0;
   const strokeDashoffset = circumference - progress * circumference;
 
@@ -87,7 +85,7 @@ export default function ActiveLoopCard({ loop, onLongPressLoop }) {
            <View className="self-start px-3 py-1 bg-[#1A1C24] rounded-full flex-row items-center gap-1">
              <Text className="text-[#A2C3FF] text-[10px]">🔥</Text>
              <Text className="text-[#A2C3FF] text-[9px] font-bold tracking-widest uppercase ml-0.5">
-               {loop.current_streak} Day Streak
+               {loop.current_streak} {loop.current_streak === 1 ? "Day" : "Days"} Streak
              </Text>
            </View>
         </View>

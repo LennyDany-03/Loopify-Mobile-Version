@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 from app.services.supabase_client import supabase
 from app.middleware.auth_guard import get_current_user
+from app.services.streak_service import get_server_today, sync_loop_collection, sync_loop_streak_snapshot
 
 router = APIRouter(prefix="/loops", tags=["Loops"])
 
@@ -50,7 +51,8 @@ async def get_loops(user_id: str = Depends(get_current_user)):
         .order("created_at", desc=False)
         .execute()
     )
-    return {"loops": res.data}
+    loops = sync_loop_collection(res.data or [], today=get_server_today())
+    return {"loops": loops}
 
 
 @router.get("/{loop_id}")
@@ -73,7 +75,8 @@ async def get_loop(loop_id: str, user_id: str = Depends(get_current_user)):
             detail="Loop not found."
         )
 
-    return res.data
+    loop = sync_loop_streak_snapshot(res.data, today=get_server_today())
+    return loop
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)

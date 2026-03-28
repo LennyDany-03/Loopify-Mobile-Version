@@ -1,10 +1,11 @@
 import { ActivityIndicator, Platform, StyleSheet, Text, View, useWindowDimensions, TouchableOpacity, Animated } from "react-native";
 import { TabView, SceneMap } from "react-native-tab-view";
-import { useRouter, Redirect } from "expo-router";
+import { Redirect } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useState, useEffect, useMemo } from "react";
 import useAuthStore from "../../lib/store/useAuthStore";
 import useNavStore from "../../lib/store/useNavStore";
+import useLoopLiveSync from "../../lib/hooks/useLoopLiveSync";
 
 import Dashboard from "./dashboard";
 import Loops from "./loops";
@@ -15,8 +16,6 @@ export default function TabLayout() {
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const isReady = useAuthStore((state) => state.isReady);
   const layout = useWindowDimensions();
-  const router = useRouter();
-
   const routes = useMemo(() => [
     { key: "dashboard", title: "DASHBOARD", icon: "view-dashboard", type: "material" },
     { key: "loops", title: "LOOPS", icon: "repeat", type: "custom" },
@@ -26,6 +25,8 @@ export default function TabLayout() {
 
   const index = useNavStore((state) => state.tabIndex);
   const setIndex = useNavStore((state) => state.setTabIndex);
+
+  useLoopLiveSync({ enabled: isReady && isLoggedIn });
 
   // Sync index on initial mount only
   const [hasSyncedOnMount, setHasSyncedOnMount] = useState(false);

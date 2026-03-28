@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Image, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import CompletionRing from "../../components/analysis/CompletionRing";
@@ -16,6 +16,7 @@ import {
 
 export default function Analysis() {
   const summary = useLoopStore((state) => state.summary);
+  const serverDate = useLoopStore((state) => state.serverDate);
   const fetchLoops = useLoopStore((state) => state.fetchLoops);
   const fetchSummary = useLoopStore((state) => state.fetchSummary);
 
@@ -25,14 +26,8 @@ export default function Analysis() {
   const [recentLoops, setRecentLoops] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const hasLoaded = useRef(false);
 
   useEffect(() => {
-    if (hasLoaded.current) {
-      return;
-    }
-
-    hasLoaded.current = true;
     let isCancelled = false;
 
     async function loadAnalysis() {
@@ -78,7 +73,7 @@ export default function Analysis() {
     return () => {
       isCancelled = true;
     };
-  }, [fetchLoops, fetchSummary]);
+  }, [fetchLoops, fetchSummary, serverDate]);
 
   return (
     <SafeAreaView className="flex-1 bg-[#050508]">

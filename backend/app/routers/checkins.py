@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import date, datetime
 from app.services.supabase_client import supabase
-from app.services.streak_service import recalculate_streak
+from app.services.streak_service import get_server_today, recalculate_streak
 from app.middleware.auth_guard import get_current_user
 
 router = APIRouter(prefix="/checkins", tags=["Checkins"])
@@ -34,7 +34,7 @@ async def create_checkin(body: CheckinCreate, user_id: str = Depends(get_current
     - Number and duration loops accumulate value in the same daily checkin.
     - Triggers streak recalculation after insert.
     """
-    checkin_date = body.date or date.today()
+    checkin_date = body.date or get_server_today()
 
     # 1. Verify loop ownership
     loop_res = (
@@ -168,6 +168,7 @@ async def create_checkin(body: CheckinCreate, user_id: str = Depends(get_current
         "message": "Checked in!" if checkin["completed"] else "Progress updated!",
         "checkin": checkin,
         "streak": streak_data,
+        "server_date": str(get_server_today()),
     }
 
 
@@ -205,7 +206,7 @@ async def get_todays_checkins(user_id: str = Depends(get_current_user)):
     Get all checkins the user has made today.
     Used by dashboard to highlight already-completed loops.
     """
-    today = str(date.today())
+    today = str(get_server_today())
     res = (
         supabase.table("checkins")
         .select("id, loop_id, value, note, completed")
@@ -215,7 +216,7 @@ async def get_todays_checkins(user_id: str = Depends(get_current_user)):
     )
     # Return as a set-like dict keyed by loop_id for fast frontend lookup
     completed_map = {c["loop_id"]: c for c in (res.data or [])}
-    return {"date": today, "completed": completed_map}
+    return {"date": today, "server_date": today, "completed": completed_map}
 
 
 @router.put("/{checkin_id}")
@@ -273,6 +274,11 @@ async def delete_checkin(checkin_id: str, user_id: str = Depends(get_current_use
         "current_streak": streak_data["current_streak"],
         "best_streak": streak_data["best_streak"],
         "total_checkins": streak_data["total_checkins"],
+        "last_checkin_date": streak_data["last_checkin_date"],
     }).eq("id", loop_id).execute()
 
-    return {"message": "Checkin deleted", "streak": streak_data}
+    return {
+        "message": "Checkin deleted",
+        "streak": streak_data,
+        "server_date": str(get_server_today()),
+    }

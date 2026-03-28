@@ -83,7 +83,9 @@ export default function Loops() {
             `${totalRecentCheckins} check-ins across the last ${bars.length} weeks.`
           );
           setWeeklySubhead(
-            activeWeeks > 0 ? `${activeWeeks} active weeks` : "Recent weeks"
+            activeWeeks > 0
+              ? `${activeWeeks} active week${activeWeeks === 1 ? "" : "s"}`
+              : "Recent weeks"
           );
         } else {
           setWeeklyHeadline("No weekly activity yet. Your next check-in starts the curve.");
@@ -109,9 +111,8 @@ export default function Loops() {
     };
   }, [loops]);
 
-  const maxTotalCheckins = Math.max(...loops.map((loop) => loop.total_checkins || 0), 0);
   const normalizedLoops = loops.map((loop) =>
-    normalizeLoop(loop, { todayCheckins, maxTotalCheckins })
+    normalizeLoop(loop, { todayCheckins })
   );
   const categories = ["All", ...new Set(normalizedLoops.map((loop) => loop.category || "General"))];
   const filteredLoops = normalizedLoops.filter((loop) => {

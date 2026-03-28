@@ -1,38 +1,71 @@
-from fastapi import APIRouter, HTTPException, Query, Depends
-from datetime import date, timedelta
 from collections import defaultdict
-from app.services.supabase_client import supabase
+from datetime import date, timedelta
+from fastapi import APIRouter, Depends, HTTPException, Query
 from app.middleware.auth_guard import get_current_user
+from app.services.streak_service import (
+    calculate_user_daily_streak,
+    get_server_today,
+    sync_loop_collection,
+    sync_loop_streak_snapshot,
+)
+from app.services.supabase_client import supabase
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 
-# ── Routes ─────────────────────────────────────────────────────────────────────
+def _get_week_start(value: date) -> date:
+    return value - timedelta(days=value.weekday())
+
+
+def _get_week_key(value: date) -> str:
+    week_start = _get_week_start(value)
+    return week_start.strftime("%Y-W%W")
+
+
+def _build_recent_weeks(count: int = 12, today: date | None = None) -> list[dict]:
+    active_today = today or get_server_today()
+    current_week_start = _get_week_start(active_today)
+    weeks = []
+
+    for offset in range(count - 1, -1, -1):
+        week_start = current_week_start - timedelta(weeks=offset)
+        week_end = week_start + timedelta(days=6)
+        weeks.append({
+            "week": _get_week_key(week_start),
+            "start_date": str(week_start),
+            "end_date": str(week_end),
+            "count": 0,
+        })
+
+    return weeks
+
 
 @router.get("/summary")
 async def get_summary(user_id: str = Depends(get_current_user)):
     """
     High-level summary card stats for the dashboard.
-    Returns: total loops, total checkins, best streak, active streak today.
     """
+    today = get_server_today()
     loops_res = (
         supabase.table("loops")
-        .select("id, name, icon, current_streak, best_streak, total_checkins, category")
+        .select("id, name, icon, current_streak, best_streak, total_checkins, category, last_checkin_date")
         .eq("user_id", user_id)
         .eq("is_active", True)
         .execute()
     )
-    loops = loops_res.data or []
+    loops = sync_loop_collection(loops_res.data or [], today=today)
+    user_streak = await calculate_user_daily_streak(user_id, today=today)
 
-    total_checkins = sum(l["total_checkins"] for l in loops)
-    best_streak = max((l["best_streak"] for l in loops), default=0)
-    active_streaks = sum(1 for l in loops if l["current_streak"] > 0)
+    total_checkins = sum(int(loop.get("total_checkins") or 0) for loop in loops)
+    active_streaks = sum(1 for loop in loops if int(loop.get("current_streak") or 0) > 0)
 
     return {
         "total_loops": len(loops),
         "total_checkins": total_checkins,
-        "best_streak_overall": best_streak,
+        "current_streak_overall": user_streak["current_streak"],
+        "best_streak_overall": user_streak["best_streak"],
         "loops_on_streak_today": active_streaks,
+        "server_date": str(today),
         "loops": loops,
     }
 
@@ -42,6 +75,7 @@ async def get_streak(loop_id: str, user_id: str = Depends(get_current_user)):
     """
     Get current and best streak for a specific loop.
     """
+    today = get_server_today()
     res = (
         supabase.table("loops")
         .select("id, name, current_streak, best_streak, total_checkins, last_checkin_date")
@@ -54,7 +88,11 @@ async def get_streak(loop_id: str, user_id: str = Depends(get_current_user)):
     if not res.data:
         raise HTTPException(status_code=404, detail="Loop not found.")
 
-    return res.data
+    loop = sync_loop_streak_snapshot(res.data, today=today)
+    return {
+        **loop,
+        "server_date": str(today),
+    }
 
 
 @router.get("/heatmap/{loop_id}")
@@ -65,10 +103,9 @@ async def get_heatmap(
 ):
     """
     Returns a year's worth of checkin data formatted for a GitHub-style heatmap.
-    Defaults to the current year.
-    Each entry: { date: "YYYY-MM-DD", count: 1 }
+    Defaults to the current server year.
     """
-    target_year = year or date.today().year
+    target_year = year or get_server_today().year
     start = date(target_year, 1, 1)
     end = date(target_year, 12, 31)
 
@@ -83,21 +120,19 @@ async def get_heatmap(
         .execute()
     )
 
-    # Build checkin map: date -> count/value
     checkin_map = {}
-    for c in (res.data or []):
-        checkin_map[c["date"]] = {
-            "date": c["date"],
+    for checkin in (res.data or []):
+        checkin_map[checkin["date"]] = {
+            "date": checkin["date"],
             "count": 1,
-            "value": c["value"],
+            "value": checkin["value"],
         }
 
-    # Fill all 365 days (so frontend can render empty cells)
     heatmap = []
     cursor = start
     while cursor <= end:
-        d = str(cursor)
-        heatmap.append(checkin_map.get(d, {"date": d, "count": 0, "value": None}))
+        day_key = str(cursor)
+        heatmap.append(checkin_map.get(day_key, {"date": day_key, "count": 0, "value": None}))
         cursor += timedelta(days=1)
 
     return {"year": target_year, "heatmap": heatmap}
@@ -106,11 +141,11 @@ async def get_heatmap(
 @router.get("/weekly/{loop_id}")
 async def get_weekly_stats(loop_id: str, user_id: str = Depends(get_current_user)):
     """
-    Returns checkin counts grouped by week for the last 12 weeks.
-    Used for bar chart / sparkline on loop detail page.
+    Returns completed checkin counts grouped into the last 12 server-based weeks.
     """
-    end = date.today()
-    start = end - timedelta(weeks=12)
+    today = get_server_today()
+    week_entries = _build_recent_weeks(today=today)
+    start_date = week_entries[0]["start_date"]
 
     res = (
         supabase.table("checkins")
@@ -118,22 +153,27 @@ async def get_weekly_stats(loop_id: str, user_id: str = Depends(get_current_user
         .eq("loop_id", loop_id)
         .eq("user_id", user_id)
         .eq("completed", True)
-        .gte("date", str(start))
+        .gte("date", start_date)
+        .lte("date", str(today))
         .execute()
     )
 
-    # Group by ISO week
-    weekly = defaultdict(int)
-    for c in (res.data or []):
-        d = date.fromisoformat(c["date"])
-        week_label = d.strftime("%Y-W%W")
-        weekly[week_label] += 1
+    counts_by_week = defaultdict(int)
+    for checkin in (res.data or []):
+        checkin_date = date.fromisoformat(checkin["date"])
+        counts_by_week[_get_week_key(checkin_date)] += 1
+
+    weeks = [
+        {
+            **entry,
+            "count": counts_by_week.get(entry["week"], 0),
+        }
+        for entry in week_entries
+    ]
 
     return {
-        "weeks": [
-            {"week": week, "count": count}
-            for week, count in sorted(weekly.items())
-        ]
+        "server_date": str(today),
+        "weeks": weeks,
     }
 
 
@@ -141,7 +181,6 @@ async def get_weekly_stats(loop_id: str, user_id: str = Depends(get_current_user
 async def get_category_breakdown(user_id: str = Depends(get_current_user)):
     """
     Returns total checkins grouped by loop category.
-    Used for the pie/donut chart on the analytics page.
     """
     res = (
         supabase.table("loops")
@@ -157,8 +196,8 @@ async def get_category_breakdown(user_id: str = Depends(get_current_user)):
 
     return {
         "categories": [
-            {"category": cat, "total": total}
-            for cat, total in sorted(breakdown.items(), key=lambda x: -x[1])
+            {"category": category, "total": total}
+            for category, total in sorted(breakdown.items(), key=lambda item: -item[1])
         ]
     }
 
@@ -169,11 +208,10 @@ async def get_completion_rate(
     user_id: str = Depends(get_current_user)
 ):
     """
-    Overall completion rate for all loops over the last N days.
-    completion_rate = (actual checkins / expected checkins) * 100
+    Overall completion rate for all loops over the last N server-based days.
     """
-    end = date.today()
-    start = end - timedelta(days=days)
+    today = get_server_today()
+    start = today - timedelta(days=days)
 
     loops_res = (
         supabase.table("loops")
@@ -194,7 +232,6 @@ async def get_completion_rate(
         .execute()
     )
     actual = checkins_res.count or 0
-
     rate = round((actual / expected) * 100, 1) if expected > 0 else 0
 
     return {

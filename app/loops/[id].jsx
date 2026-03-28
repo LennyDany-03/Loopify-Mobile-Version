@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -15,22 +16,21 @@ import { Feather } from "@expo/vector-icons";
 import HeatmapGrid from "../../components/loops/HeatmapGrid";
 import SlideToComplete from "../../components/loops/SlideToComplete";
 import LoopIcon from "../../components/ui/LoopIcon";
-import useLoopStore from "../../lib/store/useLoopStore";
 import DeleteLoopModal from "../../components/loops/DeleteLoopModal";
 import { analyticsAPI, loopsAPI } from "../../lib/api";
+import useLoopStore from "../../lib/store/useLoopStore";
 import {
   buildWeeklyBars,
   formatNumericValue,
   formatWeekLabel,
   getLoopDescription,
-  getRecentWeekKeys,
   getTodayLoopProgress,
   isLoopCompletedToday,
 } from "../../lib/utils/loopMetrics";
 
 function withOpacity(color, opacity = "33") {
   if (typeof color !== "string" || !color.startsWith("#")) {
-    return color || "#4F8EF7";
+    return color || "#72A6FF";
   }
 
   if (color.length === 7) {
@@ -110,22 +110,28 @@ function formatLastCheckin(dateValue) {
 }
 
 function buildLoopWeeklyBars(weeks = [], targetValue = null) {
-  const weekKeys = getRecentWeekKeys(7);
-  const countsByWeek = new Map(weeks.map((entry) => [entry.week, entry.count || 0]));
-
-  const trendData = weekKeys.map((weekKey) => ({
-    key: weekKey,
-    label: formatWeekLabel(weekKey),
-    count: countsByWeek.get(weekKey) || 0,
+  const trendData = weeks.slice(-7).map((entry) => ({
+    key: entry.week,
+    label: formatWeekLabel(entry.week),
+    count: entry.count || 0,
     value: 0,
   }));
 
   return buildWeeklyBars(trendData, 7, targetValue);
 }
 
+function getServerYear(serverDate) {
+  if (!serverDate) {
+    return new Date().getFullYear();
+  }
+
+  const parsedDate = new Date(`${serverDate}T00:00:00`);
+  return Number.isNaN(parsedDate.getTime()) ? new Date().getFullYear() : parsedDate.getFullYear();
+}
+
 function getTodayProgressLabel(loop, progress) {
   if (loop?.target_type === "boolean") {
-    return progress.completed ? "Completed" : "1 / 1 today";
+    return progress.completed ? "Completed" : `${formatNumericValue(progress.value) || "0"} / 1 today`;
   }
 
   const current = formatNumericValue(progress.value) || "0";
@@ -135,31 +141,104 @@ function getTodayProgressLabel(loop, progress) {
   return `${current} / ${target}${unit}`;
 }
 
-function MetricCard({ label, value, hint, accentColor }) {
+function getSwipeHint(loop) {
+  if (loop?.target_type === "boolean") {
+    return "One confident swipe locks today in.";
+  }
+
+  return `Each swipe adds 1 ${loop?.target_unit || "unit"} to today's loop.`;
+}
+
+function getRemainingLabel(loop, progress, isCompletedToday) {
+  if (loop?.target_type === "boolean") {
+    return isCompletedToday
+      ? "Today's completion is locked in."
+      : "Waiting for today's first check-in.";
+  }
+
+  if (isCompletedToday) {
+    return "Today's target is complete.";
+  }
+
+  return `${formatNumericValue(progress.remaining) || "0"} ${
+    loop?.target_unit || "unit"
+  } left to finish today.`;
+}
+
+function getUndoCopy(loop, progress, isCompletedToday) {
+  if (loop?.target_type === "boolean") {
+    return {
+      title: "Undo today's completion",
+      subtitle: "This removes today's check-in and unlocks the loop again.",
+      buttonLabel: "Undo",
+    };
+  }
+
+  const current = formatNumericValue(progress.value) || "0";
+  const target = formatNumericValue(progress.target) || "0";
+  const unit = loop?.target_unit ? ` ${loop.target_unit}` : "";
+
+  return {
+    title: isCompletedToday ? "Revoke today's finish" : "Clear today's progress",
+    subtitle: `Reset today's ${current} / ${target}${unit} progress back to zero.`,
+    buttonLabel: isCompletedToday ? "Revoke" : "Clear",
+  };
+}
+
+function StatusPill({ label, tone = "#DDE8FF", background = "#08111D", border = "#FFFFFF24" }) {
   return (
-    <View className="flex-1 bg-[#0B0D14] rounded-[24px] p-4 border border-white/5">
-      <Text className="text-white/45 text-[10px] font-bold tracking-[2px] uppercase mb-3">
+    <View
+      className="px-4 py-2 rounded-full border"
+      style={{
+        backgroundColor: background,
+        borderColor: border,
+      }}
+    >
+      <Text
+        className="text-[11px] font-bold tracking-[2px] uppercase"
+        style={{ color: tone }}
+      >
         {label}
       </Text>
-      <Text style={{ color: accentColor }} className="text-[28px] font-bold tracking-tight">
-        {value}
-      </Text>
-      <Text className="text-white/45 text-xs font-medium mt-1">{hint}</Text>
+    </View>
+  );
+}
+
+function MetricCard({ label, value, hint, accentColor }) {
+  return (
+    <View className="flex-1 rounded-[26px] overflow-hidden border border-white/5">
+      <LinearGradient
+        colors={["#09101A", "#0C0F17"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ paddingHorizontal: 16, paddingVertical: 18, minHeight: 132 }}
+      >
+        <Text className="text-white/45 text-[10px] font-bold tracking-[2px] uppercase mb-3">
+          {label}
+        </Text>
+        <Text style={{ color: accentColor }} className="text-[34px] font-black tracking-tight">
+          {value}
+        </Text>
+        <Text className="text-white/40 text-xs font-medium mt-2">{hint}</Text>
+      </LinearGradient>
     </View>
   );
 }
 
 function MetaRow({ icon, label, value, accentColor }) {
   return (
-    <View className="flex-row items-center rounded-[22px] bg-[#11131A] px-4 py-4 border border-white/5">
+    <View className="flex-row items-center rounded-[22px] bg-[#0F131C] px-4 py-4 border border-white/5">
       <View
-        className="w-10 h-10 rounded-full items-center justify-center mr-4"
-        style={{ backgroundColor: withOpacity(accentColor, "22") }}
+        className="w-11 h-11 rounded-full items-center justify-center mr-4 border"
+        style={{
+          backgroundColor: withOpacity(accentColor, "18"),
+          borderColor: withOpacity(accentColor, "2E"),
+        }}
       >
         <Feather name={icon} size={18} color={accentColor} />
       </View>
       <View className="flex-1">
-        <Text className="text-white/40 text-[10px] font-bold tracking-[2px] uppercase mb-1">
+        <Text className="text-white/35 text-[10px] font-bold tracking-[2px] uppercase mb-1">
           {label}
         </Text>
         <Text className="text-white text-[15px] font-semibold">{value}</Text>
@@ -168,66 +247,185 @@ function MetaRow({ icon, label, value, accentColor }) {
   );
 }
 
+function UndoActionCard({
+  accentColor,
+  title,
+  subtitle,
+  buttonLabel,
+  isUndoing,
+  onPress,
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.86}
+      disabled={isUndoing}
+      onPress={onPress}
+      className="rounded-[26px] overflow-hidden border border-white/5 mb-4"
+    >
+      <LinearGradient
+        colors={["#111622", "#0E1320", "#091018"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ paddingHorizontal: 16, paddingVertical: 16 }}
+      >
+        <View className="flex-row items-center">
+          <View
+            className="w-12 h-12 rounded-2xl items-center justify-center mr-4 border"
+            style={{
+              backgroundColor: withOpacity("#FF9D73", "16"),
+              borderColor: withOpacity("#FF9D73", "30"),
+            }}
+          >
+            <Feather name="rotate-ccw" size={18} color="#FF9D73" />
+          </View>
+
+          <View className="flex-1 pr-3">
+            <Text className="text-white text-[15px] font-bold tracking-tight">{title}</Text>
+            <Text className="text-white/45 text-[12px] font-medium mt-1 leading-5">
+              {subtitle}
+            </Text>
+          </View>
+
+          <View
+            className="px-4 py-2.5 rounded-full border"
+            style={{
+              backgroundColor: withOpacity(accentColor, "18"),
+              borderColor: withOpacity(accentColor, "2E"),
+            }}
+          >
+            <Text style={{ color: accentColor }} className="text-[11px] font-bold tracking-[2px] uppercase">
+              {isUndoing ? "Working" : buttonLabel}
+            </Text>
+          </View>
+        </View>
+      </LinearGradient>
+    </TouchableOpacity>
+  );
+}
+
 export default function LoopDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const loopId = Array.isArray(id) ? id[0] : id;
+
   const todayCheckins = useLoopStore((state) => state.todayCheckins);
+  const serverDate = useLoopStore((state) => state.serverDate);
   const fetchTodayCheckins = useLoopStore((state) => state.fetchTodayCheckins);
   const fetchSummary = useLoopStore((state) => state.fetchSummary);
   const checkinLoop = useLoopStore((state) => state.checkinLoop);
   const deleteLoop = useLoopStore((state) => state.deleteLoop);
+  const undoTodayCheckin = useLoopStore((state) => state.undoTodayCheckin);
 
   const [loop, setLoop] = useState(null);
   const [heatmap, setHeatmap] = useState([]);
   const [weeklyBars, setWeeklyBars] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isUndoing, setIsUndoing] = useState(false);
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [error, setError] = useState(null);
 
-  const loadLoopDetail = useCallback(async () => {
-    if (!loopId) {
-      setError("Missing loop id.");
-      setIsLoading(false);
-      return;
-    }
+  const hasLoopRef = useRef(false);
+  const previousServerDateRef = useRef(serverDate);
 
-    setIsLoading(true);
-    setError(null);
+  useEffect(() => {
+    hasLoopRef.current = !!loop;
+  }, [loop]);
 
-    try {
-      await fetchTodayCheckins();
+  const loadLoopDetail = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!loopId) {
+        setError("Missing loop id.");
+        setIsLoading(false);
+        return;
+      }
 
-      const [loopRes, streakRes, heatmapRes, weeklyRes] = await Promise.all([
-        loopsAPI.getOne(loopId),
-        analyticsAPI.streak(loopId),
-        analyticsAPI.heatmap(loopId, new Date().getFullYear()),
-        analyticsAPI.weekly(loopId),
-      ]);
+      if (silent) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
 
-      const mergedLoop = {
-        ...loopRes.data,
-        ...streakRes.data,
-        title: loopRes.data?.name,
-      };
+      if (!silent) {
+        setError(null);
+      }
 
-      setLoop(mergedLoop);
-      setHeatmap(heatmapRes.data?.heatmap || []);
-      setWeeklyBars(buildLoopWeeklyBars(
-        weeklyRes.data?.weeks || [], 
-        loopRes.data?.target_type === "boolean" ? 1 : loopRes.data?.target_value
-      ));
-    } catch (err) {
-      setError(err.response?.data?.detail || "Failed to load loop details.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [fetchTodayCheckins, loopId]);
+      try {
+        const todayData = await fetchTodayCheckins();
+        const activeServerDate = todayData?.server_date || serverDate;
+        const serverYear = getServerYear(activeServerDate);
+
+        const [loopRes, streakRes, heatmapRes, weeklyRes] = await Promise.all([
+          loopsAPI.getOne(loopId),
+          analyticsAPI.streak(loopId),
+          analyticsAPI.heatmap(loopId, serverYear),
+          analyticsAPI.weekly(loopId),
+        ]);
+
+        const mergedLoop = {
+          ...loopRes.data,
+          ...streakRes.data,
+          title: loopRes.data?.name,
+        };
+
+        setLoop(mergedLoop);
+        setHeatmap(heatmapRes.data?.heatmap || []);
+        setWeeklyBars(
+          buildLoopWeeklyBars(
+            weeklyRes.data?.weeks || [],
+            loopRes.data?.target_type === "boolean" ? 1 : loopRes.data?.target_value
+          )
+        );
+      } catch (err) {
+        if (!silent || !hasLoopRef.current) {
+          setError(err.response?.data?.detail || "Failed to load loop details.");
+        }
+      } finally {
+        if (silent) {
+          setIsRefreshing(false);
+        } else {
+          setIsLoading(false);
+        }
+      }
+    },
+    [fetchTodayCheckins, loopId, serverDate]
+  );
 
   useEffect(() => {
     loadLoopDetail();
   }, [loadLoopDetail]);
+
+  useEffect(() => {
+    if (!loopId) {
+      return undefined;
+    }
+
+    const intervalId = setInterval(() => {
+      loadLoopDetail({ silent: true });
+    }, 30000);
+
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active") {
+        loadLoopDetail({ silent: true });
+      }
+    });
+
+    return () => {
+      clearInterval(intervalId);
+      subscription.remove();
+    };
+  }, [loadLoopDetail, loopId]);
+
+  useEffect(() => {
+    if (!serverDate || !hasLoopRef.current || previousServerDateRef.current === serverDate) {
+      previousServerDateRef.current = serverDate;
+      return;
+    }
+
+    previousServerDateRef.current = serverDate;
+    loadLoopDetail({ silent: true });
+  }, [loadLoopDetail, serverDate]);
 
   async function handleComplete() {
     const incrementValue = loop?.target_type === "boolean" ? null : 1;
@@ -235,12 +433,31 @@ export default function LoopDetail() {
 
     if (result.success) {
       await Promise.all([fetchSummary(), fetchTodayCheckins()]);
-      await loadLoopDetail();
+      await loadLoopDetail({ silent: true });
       return result;
     }
 
     Alert.alert("Check-in failed", result.error || "Unable to log progress right now.");
     return result;
+  }
+
+  async function handleUndoToday() {
+    if (!loopId || isUndoing) {
+      return;
+    }
+
+    setIsUndoing(true);
+    const result = await undoTodayCheckin(loopId);
+
+    if (result.success) {
+      await Promise.all([fetchSummary(), fetchTodayCheckins()]);
+      await loadLoopDetail({ silent: true });
+      setIsUndoing(false);
+      return;
+    }
+
+    setIsUndoing(false);
+    Alert.alert("Undo failed", result.error || "Unable to revoke today's progress right now.");
   }
 
   async function handleDeleteLoop() {
@@ -265,6 +482,7 @@ export default function LoopDetail() {
     if (!loop) {
       return;
     }
+
     setIsDeleteModalVisible(true);
   }
 
@@ -272,7 +490,7 @@ export default function LoopDetail() {
     return (
       <SafeAreaView className="flex-1 bg-[#050508] items-center justify-center">
         <StatusBar style="light" />
-        <ActivityIndicator size="large" color="#4F8EF7" />
+        <ActivityIndicator size="large" color="#72A6FF" />
       </SafeAreaView>
     );
   }
@@ -285,7 +503,7 @@ export default function LoopDetail() {
           {error || "Loop details are unavailable right now."}
         </Text>
         <TouchableOpacity
-          onPress={loadLoopDetail}
+          onPress={() => loadLoopDetail()}
           activeOpacity={0.85}
           className="px-5 py-3 rounded-full bg-[#11131A] border border-white/10"
         >
@@ -295,38 +513,32 @@ export default function LoopDetail() {
     );
   }
 
-  const accentColor = loop.color || "#4F8EF7";
+  const accentColor = loop.color || "#72A6FF";
   const todayProgress = getTodayLoopProgress(loop, todayCheckins);
+  const todayEntry = todayProgress.entry;
   const isCompletedToday = isLoopCompletedToday(loop, todayCheckins);
+  const canUndoToday = !!todayEntry;
   const todayPercent = todayProgress.percent || 0;
   const progressLabel = getTodayProgressLabel(loop, todayProgress);
   const recentCheckins = weeklyBars.reduce((sum, item) => sum + (item.count || 0), 0);
   const activeWeeks = weeklyBars.filter((item) => item.count > 0).length;
+  const loopDescription = getLoopDescription(loop, todayCheckins);
+  const swipeHint = getSwipeHint(loop);
+  const remainingLabel = getRemainingLabel(loop, todayProgress, isCompletedToday);
+  const undoCopy = getUndoCopy(loop, todayProgress, isCompletedToday);
+
   const statusLabel = isCompletedToday
     ? "Completed today"
     : todayProgress.value > 0
       ? `${todayPercent}% in progress`
-      : "Ready for today";
+      : "Waiting for today";
+
   const statusTone = isCompletedToday
     ? "#88F0B6"
     : todayProgress.value > 0
       ? accentColor
       : "#DDE8FF";
-  const loopDescription = getLoopDescription(loop, todayCheckins);
-  const swipeHint =
-    loop.target_type === "boolean"
-      ? "One swipe completes today's loop."
-      : `Each swipe adds 1 ${loop.target_unit || "unit"} toward today's target.`;
-  const remainingLabel =
-    loop.target_type === "boolean"
-      ? isCompletedToday
-        ? "Today's completion is locked in."
-        : "1 swipe left to finish today."
-      : isCompletedToday
-        ? "Today's target is complete."
-        : `${formatNumericValue(todayProgress.remaining) || "0"} swipe${
-            Number(todayProgress.remaining) === 1 ? "" : "s"
-          } left to finish.`;
+
   const metaRows = [
     { icon: "repeat", label: "Cadence", value: getCadenceLabel(loop) },
     { icon: "target", label: "Target", value: getTargetLabel(loop) },
@@ -342,16 +554,16 @@ export default function LoopDetail() {
         <TouchableOpacity
           onPress={() => router.back()}
           activeOpacity={0.8}
-          className="w-11 h-11 rounded-full bg-[#0F1218] border border-white/5 items-center justify-center"
+          className="w-11 h-11 rounded-full bg-[#08121A] border border-white/5 items-center justify-center"
         >
           <Feather name="arrow-left" size={20} color="#DCE8FF" />
         </TouchableOpacity>
 
         <View className="flex-1 px-4 items-center">
-          <Text className="text-[#7DA7FF] text-[10px] font-bold tracking-[3px] uppercase mb-1">
+          <Text className="text-[#7DA7FF] text-[10px] font-bold tracking-[4px] uppercase mb-1">
             Loop Detail
           </Text>
-          <Text className="text-white text-base font-bold" numberOfLines={1}>
+          <Text className="text-white text-[17px] font-bold" numberOfLines={1}>
             {loop.name}
           </Text>
         </View>
@@ -360,7 +572,7 @@ export default function LoopDetail() {
           onPress={promptDeleteLoop}
           disabled={isDeleting}
           activeOpacity={0.8}
-          className="w-11 h-11 rounded-full bg-[#0F1218] border border-white/5 items-center justify-center"
+          className="w-11 h-11 rounded-full bg-[#08121A] border border-white/5 items-center justify-center"
         >
           <Feather name="trash-2" size={18} color={isDeleting ? "#ffffff40" : "#FF8E92"} />
         </TouchableOpacity>
@@ -368,81 +580,78 @@ export default function LoopDetail() {
 
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 28 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 36 }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="rounded-[32px] overflow-hidden border border-white/5 mb-5">
+        <View className="rounded-[34px] overflow-hidden border border-white/5 mb-5">
           <LinearGradient
-            colors={[withOpacity(accentColor, "50"), "#112038", "#050508"]}
+            colors={["#122241", "#08192D", "#05070D"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={{ paddingHorizontal: 22, paddingVertical: 24, minHeight: 230 }}
+            style={{ paddingHorizontal: 22, paddingVertical: 24, minHeight: 262 }}
           >
             <View className="absolute inset-0 items-center justify-center">
               <View
                 className="w-[250px] h-[250px] rounded-full"
-                style={{ borderWidth: 1, borderColor: withOpacity(accentColor, "20") }}
+                style={{ borderWidth: 1, borderColor: withOpacity(accentColor, "16") }}
               />
             </View>
             <View className="absolute inset-0 items-center justify-center">
               <View
-                className="w-[170px] h-[170px] rounded-full"
-                style={{ borderWidth: 1, borderColor: withOpacity(accentColor, "28") }}
+                className="w-[168px] h-[168px] rounded-full"
+                style={{ borderWidth: 1, borderColor: withOpacity(accentColor, "24") }}
+              />
+            </View>
+
+            <View className="flex-row items-center justify-between mb-6">
+              <Text className="text-[#9BC2FF] text-[10px] font-bold tracking-[3px] uppercase">
+                Active Protocol
+              </Text>
+              <StatusPill
+                label={isRefreshing ? "Syncing" : "Live"}
+                tone={isRefreshing ? "#FFD88B" : "#8FD9FF"}
+                background={withOpacity("#07111A", "CC")}
+                border={withOpacity(isRefreshing ? "#FFD88B" : "#8FD9FF", "33")}
               />
             </View>
 
             <View className="flex-row justify-between items-start mb-6">
-              <View
-                className="px-4 py-2 rounded-full border"
-                style={{
-                  backgroundColor: withOpacity("#08111D", "A6"),
-                  borderColor: withOpacity(accentColor, "30"),
-                }}
-              >
-                <Text className="text-[#D7E6FF] text-[11px] font-bold tracking-[2px] uppercase">
-                  {loop.category || "General"}
-                </Text>
-              </View>
-
-              <View
-                className="px-4 py-2 rounded-full border"
-                style={{
-                  backgroundColor: withOpacity("#0C151F", "A6"),
-                  borderColor: withOpacity(statusTone, "30"),
-                }}
-              >
-                <Text
-                  className="text-[11px] font-bold tracking-[2px] uppercase"
-                  style={{ color: statusTone }}
-                >
-                  {statusLabel}
-                </Text>
-              </View>
+              <StatusPill
+                label={loop.category || "General"}
+                tone="#D7E6FF"
+                background={withOpacity("#08111D", "B8")}
+                border={withOpacity(accentColor, "30")}
+              />
+              <StatusPill
+                label={statusLabel}
+                tone={statusTone}
+                background={withOpacity("#0C151F", "B8")}
+                border={withOpacity(statusTone, "30")}
+              />
             </View>
 
             <View
-              className="w-20 h-20 rounded-full items-center justify-center mb-5"
+              className="w-20 h-20 rounded-[28px] items-center justify-center mb-5 border"
               style={{
                 backgroundColor: withOpacity(accentColor, "22"),
-                borderWidth: 1,
                 borderColor: withOpacity("#FFFFFF", "24"),
               }}
             >
               <LoopIcon icon={loop.icon} fallback="repeat" size={34} color="#F3F7FF" />
             </View>
 
-            <Text className="text-white text-[29px] font-bold tracking-tight mb-2">
+            <Text className="text-white text-[36px] font-black tracking-tight leading-10 mb-2">
               {loop.name}
             </Text>
-            <Text className="text-[#DBE7FF]/70 text-[14px] font-medium leading-6">
+            <Text className="text-[#DBE7FF]/72 text-[14px] font-medium leading-6">
               {loopDescription}
             </Text>
 
             <View className="flex-row flex-wrap gap-3 mt-6">
               <View
-                className="px-4 py-3 rounded-[18px] border"
+                className="px-4 py-3 rounded-[18px] border min-w-[132px]"
                 style={{
-                  backgroundColor: withOpacity("#08111D", "A6"),
+                  backgroundColor: withOpacity("#08111D", "B5"),
                   borderColor: withOpacity(accentColor, "24"),
                 }}
               >
@@ -453,9 +662,9 @@ export default function LoopDetail() {
               </View>
 
               <View
-                className="px-4 py-3 rounded-[18px] border"
+                className="px-4 py-3 rounded-[18px] border min-w-[132px]"
                 style={{
-                  backgroundColor: withOpacity("#08111D", "A6"),
+                  backgroundColor: withOpacity("#08111D", "B5"),
                   borderColor: withOpacity(accentColor, "24"),
                 }}
               >
@@ -489,52 +698,59 @@ export default function LoopDetail() {
           />
         </View>
 
-        <View className="bg-[#0B0D14] rounded-[28px] p-5 border border-white/5 mb-5">
-          <View className="flex-row items-end justify-between mb-4">
-            <View className="flex-1 pr-4">
-              <Text className="text-[#7DA7FF] text-[10px] font-bold tracking-[3px] uppercase mb-1">
-                Today&apos;s Progress
-              </Text>
-              <Text className="text-white text-xl font-bold tracking-tight mb-1">
-                {progressLabel}
-              </Text>
-              <Text className="text-white/50 text-[12px] font-medium leading-5">
-                {remainingLabel}
-              </Text>
+        <View className="rounded-[30px] overflow-hidden border border-white/5 mb-5">
+          <LinearGradient
+            colors={["#0A1020", "#0A0E17"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ paddingHorizontal: 20, paddingVertical: 20 }}
+          >
+            <View className="flex-row items-end justify-between mb-4">
+              <View className="flex-1 pr-4">
+                <Text className="text-[#7DA7FF] text-[10px] font-bold tracking-[3px] uppercase mb-1">
+                  Today&apos;s Progress
+                </Text>
+                <Text className="text-white text-[28px] font-black tracking-tight mb-1">
+                  {progressLabel}
+                </Text>
+                <Text className="text-white/52 text-[13px] font-medium leading-5">
+                  {remainingLabel}
+                </Text>
+              </View>
+
+              <View
+                className="w-[78px] h-[78px] rounded-full items-center justify-center border"
+                style={{
+                  backgroundColor: withOpacity(accentColor, "14"),
+                  borderColor: withOpacity(accentColor, "2A"),
+                }}
+              >
+                <Text style={{ color: accentColor }} className="text-[24px] font-black tracking-tight">
+                  {todayPercent}%
+                </Text>
+              </View>
             </View>
 
-            <View
-              className="w-16 h-16 rounded-full items-center justify-center border"
-              style={{
-                backgroundColor: withOpacity(accentColor, "16"),
-                borderColor: withOpacity(accentColor, "28"),
-              }}
-            >
-              <Text style={{ color: accentColor }} className="text-[19px] font-bold tracking-tight">
-                {todayPercent}%
+            <View className="h-3 rounded-full bg-[#151B28] overflow-hidden mb-4">
+              <View
+                className="h-full rounded-full"
+                style={{
+                  width: `${todayPercent}%`,
+                  backgroundColor: accentColor,
+                }}
+              />
+            </View>
+
+            <View className="flex-row items-center justify-between">
+              <Text className="text-white/42 text-[11px] font-semibold">{swipeHint}</Text>
+              <Text style={{ color: accentColor }} className="text-[11px] font-bold tracking-[2px] uppercase">
+                {loop.target_type === "boolean" ? "1 swipe" : "+1 per swipe"}
               </Text>
             </View>
-          </View>
-
-          <View className="h-3 rounded-full bg-[#171B24] overflow-hidden mb-3">
-            <View
-              className="h-full rounded-full"
-              style={{
-                width: `${todayPercent}%`,
-                backgroundColor: accentColor,
-              }}
-            />
-          </View>
-
-          <View className="flex-row items-center justify-between">
-            <Text className="text-white/40 text-[11px] font-semibold">{swipeHint}</Text>
-            <Text style={{ color: accentColor }} className="text-[11px] font-bold">
-              {loop.target_type === "boolean" ? "1 swipe" : "+1 per swipe"}
-            </Text>
-          </View>
+          </LinearGradient>
         </View>
 
-        <View className="bg-[#0B0D14] rounded-[28px] p-5 border border-white/5 mb-5">
+        <View className="bg-[#0B0F16] rounded-[28px] p-5 border border-white/5 mb-5">
           <View className="flex-row items-end justify-between mb-4">
             <View>
               <Text className="text-[#7DA7FF] text-[10px] font-bold tracking-[3px] uppercase mb-1">
@@ -542,17 +758,9 @@ export default function LoopDetail() {
               </Text>
               <Text className="text-white text-xl font-bold tracking-tight">Behavior profile</Text>
             </View>
-            <View
-              className="px-3 py-2 rounded-full"
-              style={{ backgroundColor: withOpacity(accentColor, "1A") }}
-            >
-              <Text
-                style={{ color: accentColor }}
-                className="text-[10px] font-bold tracking-[2px] uppercase"
-              >
-                Active
-              </Text>
-            </View>
+            <Text className="text-white/30 text-[10px] font-bold tracking-[2px] uppercase">
+              Server Synced
+            </Text>
           </View>
 
           <View className="gap-3">
@@ -568,7 +776,7 @@ export default function LoopDetail() {
           </View>
         </View>
 
-        <View className="bg-[#0B0D14] rounded-[28px] p-5 border border-white/5 mb-5">
+        <View className="bg-[#0B0F16] rounded-[28px] p-5 border border-white/5 mb-5">
           <View className="flex-row items-end justify-between mb-5">
             <View className="flex-1 pr-4">
               <Text className="text-[#7DA7FF] text-[10px] font-bold tracking-[3px] uppercase mb-1">
@@ -586,20 +794,12 @@ export default function LoopDetail() {
               </Text>
             </View>
 
-            <View
-              className="px-3 py-2 rounded-full border"
-              style={{
-                backgroundColor: withOpacity(accentColor, "12"),
-                borderColor: withOpacity(accentColor, "28"),
-              }}
-            >
-              <Text
-                style={{ color: accentColor }}
-                className="text-[10px] font-bold tracking-[2px] uppercase"
-              >
-                Last 7 Weeks
-              </Text>
-            </View>
+            <StatusPill
+              label="Last 7 Weeks"
+              tone={accentColor}
+              background={withOpacity(accentColor, "12")}
+              border={withOpacity(accentColor, "28")}
+            />
           </View>
 
           <View className="flex-row items-end justify-between h-28">
@@ -629,22 +829,49 @@ export default function LoopDetail() {
           </View>
         </View>
 
-        <HeatmapGrid 
-          data={heatmap} 
-          color={accentColor} 
-          targetValue={loop.target_value} 
-          targetType={loop.target_type} 
+        <HeatmapGrid
+          data={heatmap}
+          color={accentColor}
+          targetValue={loop.target_value}
+          targetType={loop.target_type}
         />
       </ScrollView>
 
       <View className="px-4 pb-4 pt-3 border-t border-white/5 bg-[#050508]">
+        {canUndoToday ? (
+          <UndoActionCard
+            accentColor={accentColor}
+            title={undoCopy.title}
+            subtitle={undoCopy.subtitle}
+            buttonLabel={undoCopy.buttonLabel}
+            isUndoing={isUndoing}
+            onPress={() => {
+              Alert.alert(
+                "Undo today's progress?",
+                undoCopy.subtitle,
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: undoCopy.buttonLabel,
+                    style: "destructive",
+                    onPress: () => {
+                      handleUndoToday();
+                    },
+                  },
+                ]
+              );
+            }}
+          />
+        ) : null}
+
         <Text className="text-white/45 text-[11px] font-semibold tracking-[2px] uppercase mb-3 text-center">
           {isCompletedToday
-            ? "Today is already secured"
+            ? "Today is secured. Undo is available below if needed."
             : loop.target_type === "boolean"
-              ? "Complete this loop to keep the streak alive"
-              : "Swipe again to build progress toward today's target"}
+              ? "Complete this loop to keep the streak alive."
+              : "Swipe to build today's progress in real time."}
         </Text>
+
         <SlideToComplete
           onComplete={handleComplete}
           isCompleted={isCompletedToday}
@@ -657,8 +884,10 @@ export default function LoopDetail() {
               : "Target reached for today"
           }
           accentColor={accentColor}
+          disabled={isUndoing || isDeleting}
         />
       </View>
+
       <DeleteLoopModal
         isVisible={isDeleteModalVisible}
         loopName={loop.name}
