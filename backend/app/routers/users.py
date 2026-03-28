@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel, EmailStr
 from typing import Optional
+import re
 from app.services.supabase_client import supabase
 from app.middleware.auth_guard import get_current_user
 
@@ -10,8 +11,10 @@ router = APIRouter(prefix="/users", tags=["Users"])
 # ── Schemas ────────────────────────────────────────────────────────────────────
 
 class ProfileUpdate(BaseModel):
+    username: Optional[str] = None
     full_name: Optional[str] = None
     avatar_url: Optional[str] = None
+    symbol: Optional[str] = None
     timezone: Optional[str] = None       # e.g. "Asia/Kolkata"
     reminder_time: Optional[str] = None  # e.g. "08:00"
     theme: Optional[str] = None          # "dark" | "light" | "system"
@@ -19,6 +22,37 @@ class ProfileUpdate(BaseModel):
 
 class PasswordChange(BaseModel):
     new_password: str
+
+
+def sanitize_username(value: str | None) -> Optional[str]:
+    if value is None:
+        return None
+
+    normalized = re.sub(r"[^a-z0-9_]+", "_", value.strip().lower().lstrip("@"))
+    normalized = re.sub(r"_+", "_", normalized).strip("_")
+    return normalized or None
+
+
+def derive_username(full_name: str | None = None, email: str | None = None) -> Optional[str]:
+    source = full_name or (email.split("@")[0] if email else None)
+    return sanitize_username(source)
+
+
+def get_auth_email(user_id: str) -> Optional[str]:
+    try:
+        auth_res = supabase.auth.admin.get_user_by_id(user_id)
+    except Exception:
+        return None
+
+    auth_user = getattr(auth_res, "user", None)
+
+    if auth_user is None and isinstance(auth_res, dict):
+        auth_user = auth_res.get("user")
+
+    if isinstance(auth_user, dict):
+        return auth_user.get("email")
+
+    return getattr(auth_user, "email", None)
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
@@ -42,7 +76,28 @@ async def get_my_profile(user_id: str = Depends(get_current_user)):
             detail="Profile not found."
         )
 
-    return res.data
+    profile = dict(res.data)
+    updates = {}
+
+    auth_email = profile.get("email") or get_auth_email(user_id)
+    if auth_email and auth_email != profile.get("email"):
+        updates["email"] = auth_email
+
+    derived_username = profile.get("username") or derive_username(
+        full_name=profile.get("full_name"),
+        email=auth_email,
+    )
+    if derived_username and derived_username != profile.get("username"):
+        updates["username"] = derived_username
+
+    if updates:
+        try:
+            supabase.table("profiles").update(updates).eq("id", user_id).execute()
+            profile.update(updates)
+        except Exception:
+            profile.update(updates)
+
+    return profile
 
 
 @router.put("/me")
@@ -61,6 +116,24 @@ async def update_my_profile(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No fields provided to update."
         )
+
+    if "username" in updates:
+        normalized_username = sanitize_username(updates["username"])
+        if not normalized_username:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username must contain at least one letter, number, or underscore."
+            )
+        updates["username"] = normalized_username
+
+    if "full_name" in updates:
+        normalized_full_name = updates["full_name"].strip()
+        if not normalized_full_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Full name cannot be empty."
+            )
+        updates["full_name"] = normalized_full_name
 
     res = (
         supabase.table("profiles")

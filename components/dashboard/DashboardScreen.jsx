@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Image, ScrollView, Text, TouchableOpacity, View, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import GreetingHeader from "./GreetingHeader";
 import MiniStats from "./MiniStats";
@@ -25,6 +25,7 @@ export default function DashboardScreen() {
   const deleteLoop = useLoopStore((state) => state.deleteLoop);
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [loopToDelete, setLoopToDelete] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   const hasLoaded = useRef(false);
 
   useEffect(() => {
@@ -37,6 +38,12 @@ export default function DashboardScreen() {
     fetchSummary();
     fetchTodayCheckins();
   }, [fetchLoops, fetchSummary, fetchTodayCheckins]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([fetchLoops(), fetchSummary(), fetchTodayCheckins()]);
+    setRefreshing(false);
+  };
 
   const displayLoops = loops.map((loop) =>
     normalizeLoop(loop, { todayCheckins })
@@ -90,6 +97,15 @@ export default function DashboardScreen() {
       <ScrollView
         contentContainerStyle={{ padding: 24, paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            tintColor="#4F8EF7" 
+            colors={["#4F8EF7"]}
+            progressBackgroundColor="#1A253A"
+          />
+        }
       >
         <GreetingHeader user={user} />
 

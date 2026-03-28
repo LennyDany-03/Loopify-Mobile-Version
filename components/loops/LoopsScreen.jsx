@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Image, ScrollView, Text, TextInput, TouchableOpacity, View, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import WeeklySummaryCard from "./WeeklySummaryCard";
 import ActiveLoopCard from "./ActiveLoopCard";
@@ -34,6 +34,7 @@ export default function LoopsScreen() {
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [loopToDelete, setLoopToDelete] = useState(null);
   const hasLoaded = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (hasLoaded.current) {
@@ -44,6 +45,12 @@ export default function LoopsScreen() {
     fetchLoops();
     fetchTodayCheckins();
   }, [fetchLoops, fetchTodayCheckins]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([fetchLoops(), fetchTodayCheckins()]);
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     let isCancelled = false;
@@ -156,6 +163,15 @@ export default function LoopsScreen() {
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 60 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            tintColor="#4F8EF7" 
+            colors={["#4F8EF7"]}
+            progressBackgroundColor="#1A253A"
+          />
+        }
       >
         <View className="flex-row items-center bg-[#11131A] rounded-2xl px-4 py-3.5 mb-6 border border-white/5">
           <Feather name="search" size={18} color="#ffffff40" />

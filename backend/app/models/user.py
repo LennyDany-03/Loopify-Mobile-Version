@@ -20,8 +20,10 @@ class UserProfile(BaseModel):
     """
     id: UUID
     email: Optional[EmailStr] = None
+    username: Optional[str] = None
     full_name: Optional[str] = None
     avatar_url: Optional[str] = None
+    symbol: Optional[str] = None
     timezone: Optional[str] = "Asia/Kolkata"   # Default: IST
     reminder_time: Optional[str] = None         # e.g. "08:00"
     theme: Optional[str] = "dark"               # "dark" | "light" | "system"
@@ -41,7 +43,9 @@ class UserPublicResponse(BaseModel):
     """
     id: UUID
     full_name: str
+    username: Optional[str] = None
     avatar_url: Optional[str] = None
+    symbol: Optional[str] = None
     theme: Optional[str] = "dark"
     timezone: Optional[str] = None
     created_at: Optional[datetime] = None

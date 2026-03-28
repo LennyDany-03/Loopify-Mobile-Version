@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Image, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, AppState, Image, ScrollView, Text, View, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import CompletionRing from "./CompletionRing";
 import FocusAreas from "./FocusAreas";
@@ -243,6 +243,10 @@ export default function AnalysisScreen() {
     };
   }, [isAnalysisActive, loadAnalysis]);
 
+  const onRefresh = async () => {
+    await loadAnalysis({ silent: true, syncCollections: true });
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-[#050508]">
       <View className="flex-row items-center justify-between px-6 py-4">
@@ -259,6 +263,15 @@ export default function AnalysisScreen() {
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl 
+            refreshing={isRefreshing} 
+            onRefresh={onRefresh} 
+            tintColor="#4F8EF7" 
+            colors={["#4F8EF7"]}
+            progressBackgroundColor="#1A253A"
+          />
+        }
       >
         <View className="bg-[#0B0D14] border border-white/5 rounded-[40px] p-8 mb-6 mt-2">
           <Text className="text-white/60 text-sm font-bold tracking-tight mb-8">

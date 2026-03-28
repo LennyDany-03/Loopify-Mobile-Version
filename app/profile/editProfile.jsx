@@ -1,17 +1,41 @@
-import { View, Text, Image, TouchableOpacity, ScrollView, TextInput } from "react-native";
+import { View, Text, Image, TouchableOpacity, ScrollView, TextInput, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { requireOptionalNativeModule } from "expo-modules-core";
 import useAuthStore from "../../lib/store/useAuthStore";
-import { useState } from "react";
+import { usersAPI } from "../../lib/api";
+import { useEffect, useState } from "react";
 
 const SYMBOLS = [
-  "zap", "star", "rocket", "award",
+  "zap", "star", "navigation", "award",
   "aperture", "cpu", "sun", "heart",
   "anchor", "hexagon", "cloud-lightning", "globe"
 ];
 
+function sanitizeUsername(value = "") {
+  return value
+    .trim()
+    .replace(/^@+/, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function buildDisplayUsername(user) {
+  const fallback =
+    user?.username ||
+    user?.email?.split("@")[0] ||
+    user?.full_name ||
+    "";
+
+  const normalized = sanitizeUsername(fallback);
+  return normalized ? `@${normalized}` : "";
+}
+
 function InputField({ label, value, onChangeText, editable = true, icon }) {
+// ... existing InputField
   return (
     <View className="mb-5">
       <Text className="text-white/60 text-[10px] font-bold mb-2 ml-1 tracking-wide">
@@ -29,7 +53,7 @@ function InputField({ label, value, onChangeText, editable = true, icon }) {
           <Feather 
             name={icon || (editable ? "edit-2" : "lock")} 
             size={14} 
-            color={editable ? "#7DA7FF" : "#FFFFFF"} 
+            color={editable ? "#7CA6FF" : "#FFFFFF"} 
           />
         </View>
       </View>
@@ -42,19 +66,161 @@ export default function EditProfile() {
   const user = useAuthStore((state) => state.user);
   const updateUser = useAuthStore((state) => state.updateUser);
 
-  const [fullName, setFullName] = useState(user?.full_name || "Lenny");
-  const [username, setUsername] = useState(`@${(user?.full_name?.split(" ")[0] || "Lenny").toLowerCase()}_loops`);
-  const [activeSymbol, setActiveSymbol] = useState("star");
+  const [fullName, setFullName] = useState(user?.full_name || "");
+  const [username, setUsername] = useState(buildDisplayUsername(user));
+  const [activeSymbol, setActiveSymbol] = useState(user?.symbol || "star");
+  const [newAvatarBase64, setNewAvatarBase64] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const avatarUrl = user?.picture || user?.avatar_url || user?.profile_pic;
-  const initial = fullName.charAt(0).toUpperCase();
+  const displayAvatar = newAvatarBase64 || user?.picture || user?.avatar_url || user?.profile_pic;
+  const initial = (fullName || user?.full_name || user?.email || "L").charAt(0).toUpperCase();
 
-  const handleSave = () => {
-    // Optimistic fallback update for the UI if API isn't fully robust for these fields
-    if (user) {
-      updateUser({ ...user, full_name: fullName });
+  useEffect(() => {
+    const profileIdentity = {
+      username: user?.username,
+      email: user?.email,
+      full_name: user?.full_name,
+    };
+
+    setFullName(user?.full_name || "");
+    setUsername(buildDisplayUsername(profileIdentity));
+    setActiveSymbol(user?.symbol || "star");
+  }, [user?.email, user?.full_name, user?.symbol, user?.username]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function refreshProfile() {
+      if (!user?.id || (user?.email && user?.username)) {
+        return;
+      }
+
+      try {
+        const profileRes = await usersAPI.getMe();
+        if (!isMounted || !profileRes?.data) {
+          return;
+        }
+
+        await updateUser({ ...user, ...profileRes.data });
+      } catch (error) {
+        console.log("Profile refresh error:", error);
+      }
     }
-    router.back();
+
+    refreshProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [updateUser, user]);
+
+  const pickImage = async () => {
+    let ImagePicker;
+
+    if (!requireOptionalNativeModule("ExponentImagePicker")) {
+      Alert.alert(
+        "Image picker unavailable",
+        "This development build does not include expo-image-picker yet. Rebuild the dev client to enable profile photo uploads."
+      );
+      return;
+    }
+
+    try {
+      const imagePickerModule = require("expo-image-picker");
+      ImagePicker = imagePickerModule?.default ?? imagePickerModule;
+    } catch (e) {
+      console.log("Image picker load error:", e);
+      Alert.alert(
+        "Image picker unavailable",
+        "This development build does not include expo-image-picker yet. Rebuild the dev client to enable profile photo uploads."
+      );
+      return;
+    }
+
+    if (
+      !ImagePicker?.requestMediaLibraryPermissionsAsync ||
+      !ImagePicker?.launchImageLibraryAsync
+    ) {
+      Alert.alert(
+        "Image picker unavailable",
+        "This development build does not include expo-image-picker yet. Rebuild the dev client to enable profile photo uploads."
+      );
+      return;
+    }
+
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert("Permission needed", "Allow photo library access to update your profile image.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.2, // Keep it extremely small for db base64 save
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets?.[0]?.base64) {
+        setNewAvatarBase64(`data:image/jpeg;base64,${result.assets[0].base64}`);
+      }
+    } catch (e) {
+      console.log("Image picker error:", e);
+      Alert.alert(
+        "Photo selection failed",
+        "We couldn't open the photo library right now."
+      );
+    }
+  };
+
+  const handleSave = async () => {
+    const normalizedFullName = fullName.trim();
+    const normalizedUsername = sanitizeUsername(username);
+
+    if (!normalizedFullName) {
+      Alert.alert("Missing full name", "Please enter your full name before saving.");
+      return;
+    }
+
+    if (!normalizedUsername) {
+      Alert.alert("Missing username", "Please enter a valid username before saving.");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const payload = {
+        username: normalizedUsername,
+        full_name: normalizedFullName,
+        symbol: activeSymbol
+      };
+      
+      if (newAvatarBase64) {
+        payload.avatar_url = newAvatarBase64;
+      }
+      
+      const response = await usersAPI.updateMe(payload);
+      const profile = response?.data?.profile || payload;
+      
+      if (user) {
+        // Update local Zustand store so app UI reflects changes immediately
+        await updateUser({
+          ...user,
+          ...profile,
+          avatar_url: profile.avatar_url || newAvatarBase64 || user.avatar_url,
+        });
+      }
+      
+      router.back();
+    } catch (e) {
+      console.error("Save error:", e);
+      Alert.alert("Error", "Could not save your profile. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -80,17 +246,17 @@ export default function EditProfile() {
         <View className="items-center mb-8">
           <View className="relative">
             <View className="w-24 h-24 rounded-full border-2 border-[#1E2536] items-center justify-center overflow-hidden bg-[#0B0D14]">
-              {avatarUrl ? (
-                <Image source={{ uri: avatarUrl }} className="w-full h-full" resizeMode="cover" />
+              {displayAvatar ? (
+                <Image source={{ uri: displayAvatar }} className="w-full h-full" resizeMode="cover" />
               ) : (
                 <Text className="text-[#7CA6FF] text-4xl font-black">{initial}</Text>
               )}
             </View>
-            <TouchableOpacity className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-[#7CA6FF] border-2 border-[#090A0E] items-center justify-center shadow-lg shadow-[#7CA6FF]/50 active:bg-[#4F8EF7]">
+            <TouchableOpacity onPress={pickImage} className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-[#7CA6FF] border-2 border-[#090A0E] items-center justify-center shadow-lg shadow-[#7CA6FF]/50 active:bg-[#4F8EF7]">
               <Feather name="edit-2" size={12} color="#0D1B36" />
             </TouchableOpacity>
           </View>
-          <TouchableOpacity className="mt-4 active:opacity-70">
+          <TouchableOpacity onPress={pickImage} className="mt-4 active:opacity-70">
             <Text className="text-[#7CA6FF] text-[10px] font-bold tracking-[2px] uppercase">
               Edit Profile Image
             </Text>
@@ -102,17 +268,20 @@ export default function EditProfile() {
           <InputField 
             label="Username" 
             value={username} 
-            onChangeText={setUsername} 
+            onChangeText={setUsername}
+            icon="at-sign"
           />
           <InputField 
             label="Email Address" 
-            value={user?.email || "lenny@loopify.com"} 
+            value={user?.email || ""} 
             editable={false} 
+            icon="mail"
           />
           <InputField 
             label="Full Name" 
             value={fullName} 
             onChangeText={setFullName} 
+            icon="user"
           />
         </View>
 
@@ -144,10 +313,11 @@ export default function EditProfile() {
         {/* Save Button */}
         <TouchableOpacity 
           onPress={handleSave}
+          disabled={isSaving}
           activeOpacity={0.8}
-          className="w-full bg-[#7CA6FF] items-center justify-center py-[18px] rounded-full shadow-lg shadow-[#7CA6FF]/30"
+          className={`w-full bg-[#7CA6FF] items-center justify-center py-[18px] rounded-full shadow-lg shadow-[#7CA6FF]/30 ${isSaving ? 'opacity-50' : 'opacity-100'}`}
         >
-          <Text className="text-[#0D1B36] font-bold text-[15px]">Save Changes</Text>
+          <Text className="text-[#0D1B36] font-bold text-[15px]">{isSaving ? "Saving..." : "Save Changes"}</Text>
         </TouchableOpacity>
 
       </ScrollView>

@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from postgrest.exceptions import APIError
 from supabase_auth.errors import AuthApiError, AuthError, AuthWeakPasswordError
+import re
 
 from app.services.supabase_client import supabase
 from app.utils.jwt import create_access_token, create_refresh_token, decode_token
@@ -72,7 +73,24 @@ def build_auth_response(user_id: str, message: str) -> dict:
     }
 
 
-def upsert_profile(user_id: str, full_name: str | None = None, avatar_url: str | None = None) -> None:
+def derive_default_username(email: str | None = None, full_name: str | None = None) -> str | None:
+    source = full_name or (email.split("@")[0] if email else None)
+
+    if not source:
+        return None
+
+    normalized = re.sub(r"[^a-z0-9_]+", "_", source.strip().lower())
+    normalized = re.sub(r"_+", "_", normalized).strip("_")
+    return normalized or None
+
+
+def upsert_profile(
+    user_id: str,
+    full_name: str | None = None,
+    avatar_url: str | None = None,
+    email: str | None = None,
+    username: str | None = None,
+) -> None:
     payload = {"id": user_id}
 
     if full_name:
@@ -80,6 +98,12 @@ def upsert_profile(user_id: str, full_name: str | None = None, avatar_url: str |
 
     if avatar_url:
         payload["avatar_url"] = avatar_url
+
+    if email:
+        payload["email"] = email
+
+    if username:
+        payload["username"] = username
 
     supabase.table("profiles").upsert(payload).execute()
 
@@ -120,7 +144,12 @@ async def register(body: RegisterRequest):
     user_id = res.user.id
 
     try:
-        upsert_profile(user_id, full_name=body.full_name)
+        upsert_profile(
+            user_id,
+            full_name=body.full_name,
+            email=body.email,
+            username=derive_default_username(email=body.email, full_name=body.full_name),
+        )
     except APIError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -185,9 +214,15 @@ async def google_sign_in(body: GoogleSignInRequest):
     user_metadata = getattr(res.user, "user_metadata", None) or {}
     full_name = user_metadata.get("full_name") or user_metadata.get("name")
     avatar_url = user_metadata.get("avatar_url") or user_metadata.get("picture")
+    email = getattr(res.user, "email", None)
 
     try:
-        upsert_profile(user_id, full_name=full_name, avatar_url=avatar_url)
+        upsert_profile(
+            user_id,
+            full_name=full_name,
+            avatar_url=avatar_url,
+            email=email,
+        )
     except APIError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
