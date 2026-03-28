@@ -1,6 +1,6 @@
 import { View, Text } from "react-native";
 import LoopItem from "../ui/LoopItem";
-import { useRouter } from "expo-router";
+import { router } from "expo-router";
 import { isLoopCompletedToday } from "../../lib/utils/loopMetrics";
 
 export default function TodayLoopList({
@@ -8,8 +8,6 @@ export default function TodayLoopList({
   todayCheckins = {},
   onLongPressLoop,
 }) {
-  const router = useRouter();
-
   // Unchecked first, checked sink to bottom
   const sorted = [...loops].sort((a, b) => {
     const ac = isLoopCompletedToday(a, todayCheckins);

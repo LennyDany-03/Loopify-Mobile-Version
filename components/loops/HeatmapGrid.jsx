@@ -25,7 +25,14 @@ function getCellLevel(entry, targetValue, targetType) {
   return 0;
 }
 
-export default function HeatmapGrid({ data = [], color = "#4F8EF7", targetValue, targetType }) {
+export default function HeatmapGrid({ 
+  data = [], 
+  color = "#4F8EF7", 
+  targetValue, 
+  targetType,
+  title = "Annual Velocity",
+  subtitle = "Activity density across this year"
+}) {
   const cells = data.length
     ? data
     : Array.from({ length: 365 }, (_, index) => ({
@@ -43,10 +50,10 @@ export default function HeatmapGrid({ data = [], color = "#4F8EF7", targetValue,
       <View className="flex-row justify-between items-end mb-4">
         <View>
           <Text className="text-white text-lg font-bold mb-1 leading-tight tracking-tight">
-            Annual Velocity
+            {title}
           </Text>
           <Text className="text-white/50 text-[11px] font-semibold tracking-wide">
-            Activity density across this year
+            {subtitle}
           </Text>
         </View>
         <View className="flex-row items-center gap-[3px] pb-1">

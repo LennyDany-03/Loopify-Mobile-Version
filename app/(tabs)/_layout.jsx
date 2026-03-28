@@ -1,112 +1,137 @@
-import { ActivityIndicator, Platform, StyleSheet, Text, View, useWindowDimensions, TouchableOpacity, Animated } from "react-native";
-import { TabView, SceneMap } from "react-native-tab-view";
-import { Redirect } from "expo-router";
+import { ActivityIndicator, Animated, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { Redirect, Tabs } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import useAuthStore from "../../lib/store/useAuthStore";
 import useNavStore from "../../lib/store/useNavStore";
 import useLoopLiveSync from "../../lib/hooks/useLoopLiveSync";
 
-import Dashboard from "./dashboard";
-import Loops from "./loops";
-import Analysis from "./analysis";
-import Settings from "./settings";
+const TAB_META = {
+  dashboard: {
+    title: "DASHBOARD",
+    icon: "view-dashboard",
+    type: "material",
+  },
+  loops: {
+    title: "LOOPS",
+    icon: "infinity",
+    type: "material",
+  },
+  analysis: {
+    title: "ANALYSIS",
+    icon: "google-analytics",
+    type: "material",
+  },
+  settings: {
+    title: "SETTINGS",
+    icon: "settings-sharp",
+    type: "ionicons",
+  },
+};
 
-export default function TabLayout() {
-  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
-  const isReady = useAuthStore((state) => state.isReady);
+function CustomTabBar({ state, navigation }) {
   const layout = useWindowDimensions();
-  const routes = useMemo(() => [
-    { key: "dashboard", title: "DASHBOARD", icon: "view-dashboard", type: "material" },
-    { key: "loops", title: "LOOPS", icon: "repeat", type: "custom" },
-    { key: "analysis", title: "ANALYSIS", icon: "google-analytics", type: "material" },
-    { key: "settings", title: "SETTINGS", icon: "settings-sharp", type: "ionicons" },
-  ], []);
+  const setTabIndex = useNavStore((store) => store.setTabIndex);
+  const animatedIndex = useRef(new Animated.Value(state.index)).current;
+  const inputRange = useMemo(
+    () => state.routes.map((_, routeIndex) => routeIndex),
+    [state.routes]
+  );
 
-  const index = useNavStore((state) => state.tabIndex);
-  const setIndex = useNavStore((state) => state.setTabIndex);
-
-  useLoopLiveSync({ enabled: isReady && isLoggedIn });
-
-  // Sync index on initial mount only
-  const [hasSyncedOnMount, setHasSyncedOnMount] = useState(false);
   useEffect(() => {
-    if (!hasSyncedOnMount) {
-      setHasSyncedOnMount(true);
-    }
-  }, [hasSyncedOnMount]);
+    setTabIndex(state.index);
 
-  const renderScene = useMemo(() => SceneMap({
-    dashboard: Dashboard,
-    loops: Loops,
-    analysis: Analysis,
-    settings: Settings,
-  }), []);
+    Animated.spring(animatedIndex, {
+      toValue: state.index,
+      useNativeDriver: true,
+      damping: 20,
+      stiffness: 220,
+      mass: 0.8,
+    }).start();
+  }, [animatedIndex, setTabIndex, state.index]);
 
-  const renderTabBar = (props) => {
-    // Total physical width of the bar
-    const barWidth = layout.width - 36;
-    // Internal content width (barWidth - internal margins)
-    const contentWidth = barWidth - 16; 
-    const tabWidth = contentWidth / 4;
+  if (!state.routes.length) {
+    return null;
+  }
 
-    const translateX = props.position.interpolate({
-      inputRange: [0, 1, 2, 3],
-      outputRange: [0, tabWidth, tabWidth * 2, tabWidth * 3],
-    });
+  const barWidth = layout.width - 36;
+  const contentWidth = barWidth - 16;
+  const tabWidth = contentWidth / state.routes.length;
 
-    return (
+  const translateX = animatedIndex.interpolate({
+    inputRange,
+    outputRange: inputRange.map((routeIndex) => routeIndex * tabWidth),
+  });
+
+  return (
+    <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
       <View style={styles.tabBar}>
         <View style={styles.tabBarContent}>
-          {/* Animated Traveling Pill Wrapper */}
-          <Animated.View 
+          <Animated.View
             style={[
-              styles.animatedPill, 
-              { 
+              styles.animatedPill,
+              {
                 width: tabWidth,
-                transform: [{ translateX }] 
-              }
-            ]} 
+                transform: [{ translateX }],
+              },
+            ]}
           >
             <View style={styles.pillInner}>
-               <View style={styles.activeIndicator} />
+              <View style={styles.activeIndicator} />
             </View>
           </Animated.View>
-          
-          {props.navigationState.routes.map((route, i) => {
-            const focused = i === index;
-            
+
+          {state.routes.map((route, routeIndex) => {
+            const focused = state.index === routeIndex;
+            const meta = TAB_META[route.name] ?? {
+              title: route.name.toUpperCase(),
+              icon: "ellipse",
+              type: "ionicons",
+            };
+
+            const onPress = () => {
+              const event = navigation.emit({
+                type: "tabPress",
+                target: route.key,
+                canPreventDefault: true,
+              });
+
+              if (!focused && !event.defaultPrevented) {
+                navigation.navigate(route.name);
+              }
+            };
+
+            const onLongPress = () => {
+              navigation.emit({
+                type: "tabLongPress",
+                target: route.key,
+              });
+            };
+
             return (
               <TouchableOpacity
                 key={route.key}
-                onPress={() => setIndex(i)}
+                onPress={onPress}
+                onLongPress={onLongPress}
                 style={styles.tabItem}
                 activeOpacity={0.7}
               >
                 <View style={styles.tabContainer}>
-                  {route.type === "material" && (
+                  {meta.type === "material" ? (
                     <MaterialCommunityIcons
-                      name={route.icon}
-                      size={20}
+                      name={meta.icon}
+                      size={route.name === "loops" ? 24 : 20}
                       color={focused ? "#FFFFFF" : "rgba(255, 255, 255, 0.4)"}
                     />
-                  )}
-                  {route.type === "ionicons" && (
+                  ) : (
                     <Ionicons
-                      name={route.icon}
+                      name={meta.icon}
                       size={20}
-                      color={focused ? "#FFFFFF" : "rgba(255, 255, 255, 0.4)"}
-                    />
-                  )}
-                  {route.type === "custom" && (
-                    <MaterialCommunityIcons
-                      name="infinity"
-                      size={24}
                       color={focused ? "#FFFFFF" : "rgba(255, 255, 255, 0.4)"}
                     />
                   )}
                   <Text style={[styles.tabLabel, { color: focused ? "#FFFFFF" : "rgba(255, 255, 255, 0.4)" }]}>
-                    {route.title}
+                    {meta.title}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -114,8 +139,15 @@ export default function TabLayout() {
           })}
         </View>
       </View>
-    );
-  };
+    </View>
+  );
+}
+
+export default function TabLayout() {
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
+  const isReady = useAuthStore((state) => state.isReady);
+
+  useLoopLiveSync({ enabled: isReady && isLoggedIn });
 
   if (!isReady) {
     return (
@@ -130,18 +162,19 @@ export default function TabLayout() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#050508" }}>
-      <TabView
-        navigationState={{ index, routes }}
-        renderScene={renderScene}
-        onIndexChange={setIndex}
-        initialLayout={{ width: layout.width }}
-        tabBarPosition="bottom"
-        renderTabBar={renderTabBar}
-        swipeEnabled={true}
-        animationEnabled={true}
-      />
-    </View>
+    <Tabs
+      tabBar={(props) => <CustomTabBar {...props} />}
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: { display: "none" },
+        sceneStyle: { backgroundColor: "#050508" },
+      }}
+    >
+      <Tabs.Screen name="dashboard" />
+      <Tabs.Screen name="loops" />
+      <Tabs.Screen name="analysis" />
+      <Tabs.Screen name="settings" />
+    </Tabs>
   );
 }
 
@@ -152,16 +185,16 @@ const styles = StyleSheet.create({
     left: 18,
     right: 18,
     height: 74,
-    backgroundColor: "rgba(11, 13, 22, 0.82)", // Translucent dark
+    backgroundColor: "rgba(11, 13, 22, 0.82)",
     borderRadius: 37,
     borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.14)", // Glassy edge
+    borderColor: "rgba(255, 255, 255, 0.14)",
     elevation: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.5,
     shadowRadius: 15,
-    overflow: "hidden", // Ensure glass effect stays in bounds
+    overflow: "hidden",
   },
   tabBarContent: {
     flex: 1,
@@ -171,7 +204,7 @@ const styles = StyleSheet.create({
   },
   animatedPill: {
     position: "absolute",
-    left: 8, // Center within the content padding
+    left: 8,
     height: "100%",
     justifyContent: "center",
     alignItems: "center",

@@ -17,6 +17,7 @@ import HeatmapGrid from "../../components/loops/HeatmapGrid";
 import SlideToComplete from "../../components/loops/SlideToComplete";
 import LoopIcon from "../../components/ui/LoopIcon";
 import DeleteLoopModal from "../../components/loops/DeleteLoopModal";
+import RevokeLoopModal from "../../components/loops/RevokeLoopModal";
 import { analyticsAPI, loopsAPI } from "../../lib/api";
 import useLoopStore from "../../lib/store/useLoopStore";
 import {
@@ -168,7 +169,7 @@ function getRemainingLabel(loop, progress, isCompletedToday) {
 function getUndoCopy(loop, progress, isCompletedToday) {
   if (loop?.target_type === "boolean") {
     return {
-      title: "Undo today's completion",
+      title: "Revoke Loop's completion",
       subtitle: "This removes today's check-in and unlocks the loop again.",
       buttonLabel: "Undo",
     };
@@ -324,6 +325,7 @@ export default function LoopDetail() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUndoing, setIsUndoing] = useState(false);
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [isRevokeModalVisible, setIsRevokeModalVisible] = useState(false);
   const [error, setError] = useState(null);
 
   const hasLoopRef = useRef(false);
@@ -845,22 +847,7 @@ export default function LoopDetail() {
             subtitle={undoCopy.subtitle}
             buttonLabel={undoCopy.buttonLabel}
             isUndoing={isUndoing}
-            onPress={() => {
-              Alert.alert(
-                "Undo today's progress?",
-                undoCopy.subtitle,
-                [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: undoCopy.buttonLabel,
-                    style: "destructive",
-                    onPress: () => {
-                      handleUndoToday();
-                    },
-                  },
-                ]
-              );
-            }}
+            onPress={() => setIsRevokeModalVisible(true)}
           />
         ) : null}
 
@@ -895,6 +882,18 @@ export default function LoopDetail() {
         onConfirm={() => {
           setIsDeleteModalVisible(false);
           handleDeleteLoop();
+        }}
+      />
+
+      <RevokeLoopModal
+        isVisible={isRevokeModalVisible}
+        title={undoCopy.title}
+        subtitle={undoCopy.subtitle}
+        confirmLabel={undoCopy.buttonLabel}
+        onCancel={() => setIsRevokeModalVisible(false)}
+        onConfirm={() => {
+          setIsRevokeModalVisible(false);
+          handleUndoToday();
         }}
       />
     </SafeAreaView>

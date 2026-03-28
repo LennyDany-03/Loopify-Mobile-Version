@@ -2,11 +2,10 @@ import { useRef } from "react";
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Svg, { Circle } from 'react-native-svg';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import LoopIcon from '../ui/LoopIcon';
 
 export default function ActiveLoopCard({ loop, onLongPressLoop }) {
-  const router = useRouter();
   const suppressNextPress = useRef(false);
 
   const size = 64;
