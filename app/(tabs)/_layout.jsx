@@ -1,5 +1,6 @@
 import { ActivityIndicator, Animated, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions, Image } from "react-native";
-import { Redirect, Tabs } from "expo-router";
+import { Redirect, withLayoutContext } from "expo-router";
+import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useRef } from "react";
 import useAuthStore from "../../lib/store/useAuthStore";
@@ -26,6 +27,9 @@ const TAB_META = {
     isProfile: true,
   },
 };
+
+const { Navigator } = createMaterialTopTabNavigator();
+const SwipeTabs = withLayoutContext(Navigator);
 
 function CustomTabBar({ state, navigation }) {
   const layout = useWindowDimensions();
@@ -67,7 +71,7 @@ function CustomTabBar({ state, navigation }) {
   });
 
   return (
-    <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+    <View pointerEvents="box-none" style={styles.tabBarLayer}>
       <View style={styles.tabBar}>
         <View style={styles.tabBarContent}>
           <Animated.View
@@ -176,28 +180,38 @@ export default function TabLayout() {
   }
 
   return (
-    <Tabs
+    <SwipeTabs
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
-        headerShown: false,
-        tabBarStyle: { display: "none" },
+        swipeEnabled: true,
+        animationEnabled: true,
+        lazy: false,
+        tabBarPosition: "bottom",
+        tabBarScrollEnabled: false,
+        tabBarStyle: styles.nativeTabBarHost,
         sceneStyle: { backgroundColor: "#050508" },
       }}
     >
-      <Tabs.Screen name="dashboard" />
-      <Tabs.Screen name="loops" />
-      <Tabs.Screen name="analysis" />
-      <Tabs.Screen name="profile" />
-    </Tabs>
+      <SwipeTabs.Screen name="dashboard" />
+      <SwipeTabs.Screen name="loops" />
+      <SwipeTabs.Screen name="analysis" />
+      <SwipeTabs.Screen name="profile" />
+    </SwipeTabs>
   );
 }
 
 const styles = StyleSheet.create({
-  tabBar: {
+  tabBarLayer: {
     position: "absolute",
-    bottom: Platform.OS === "ios" ? 34 : 24,
-    left: 18,
-    right: 18,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 100,
+    elevation: 100,
+  },
+  tabBar: {
+    marginHorizontal: 18,
+    marginBottom: Platform.OS === "ios" ? 34 : 24,
     height: 74,
     backgroundColor: "rgba(11, 13, 22, 0.82)",
     borderRadius: 37,
@@ -209,6 +223,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 15,
     overflow: "hidden",
+  },
+  nativeTabBarHost: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: Platform.OS === "ios" ? 124 : 108,
+    backgroundColor: "transparent",
+    elevation: 0,
+    shadowOpacity: 0,
+    borderTopWidth: 0,
+    borderBottomWidth: 0,
   },
   tabBarContent: {
     flex: 1,
