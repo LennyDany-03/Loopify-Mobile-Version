@@ -1,6 +1,8 @@
 import { View, Text } from "react-native";
+import useAppTheme from "../../lib/hooks/useAppTheme";
 
 export default function LoopTrendsChart({ data = [] }) {
+  const { theme, isDark } = useAppTheme();
   const chartHeight = 120;
   const firstLabel = data[0]?.label || "WK 00";
   const middleLabel = data[Math.floor(data.length / 2)]?.label || "WK 00";
@@ -21,9 +23,9 @@ export default function LoopTrendsChart({ data = [] }) {
                 className="w-full rounded-full"
                 style={{
                   height: barHeight,
-                  backgroundColor: isHighlighted ? "#72A6FF" : "#ffffff",
-                  opacity: isHighlighted ? 1 : 0.15,
-                  shadowColor: isHighlighted ? "#4F8EF7" : "transparent",
+                  backgroundColor: isHighlighted ? theme.accentStrong : isDark ? "#FFFFFF" : theme.accent,
+                  opacity: isHighlighted ? 1 : isDark ? 0.15 : 0.22,
+                  shadowColor: isHighlighted ? theme.accent : "transparent",
                   shadowOffset: { width: 0, height: 4 },
                   shadowOpacity: 0.5,
                   shadowRadius: 8,
@@ -35,9 +37,15 @@ export default function LoopTrendsChart({ data = [] }) {
       </View>
 
       <View className="flex-row justify-between px-2">
-        <Text className="text-white/30 text-[10px] font-bold tracking-widest">{firstLabel}</Text>
-        <Text className="text-white/30 text-[10px] font-bold tracking-widest ml-4">{middleLabel}</Text>
-        <Text className="text-white/30 text-[10px] font-bold tracking-widest">{lastLabel}</Text>
+        <Text className="text-[10px] font-bold tracking-widest" style={{ color: theme.textSubtle }}>
+          {firstLabel}
+        </Text>
+        <Text className="text-[10px] font-bold tracking-widest ml-4" style={{ color: theme.textSubtle }}>
+          {middleLabel}
+        </Text>
+        <Text className="text-[10px] font-bold tracking-widest" style={{ color: theme.textSubtle }}>
+          {lastLabel}
+        </Text>
       </View>
     </View>
   );

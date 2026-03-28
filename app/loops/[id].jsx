@@ -21,6 +21,7 @@ import DeleteLoopModal from "../../components/loops/DeleteLoopModal";
 import RevokeLoopModal from "../../components/loops/RevokeLoopModal";
 import { analyticsAPI, loopsAPI } from "../../lib/api";
 import useLoopStore from "../../lib/store/useLoopStore";
+import useAppTheme from "../../lib/hooks/useAppTheme";
 import {
   buildWeeklyBars,
   formatNumericValue,
@@ -251,18 +252,18 @@ function StatusPill({ label, tone = "#DDE8FF", background = "#08111D", border = 
   );
 }
 
-function MetricCard({ label, value, hint, accentColor }) {
+function MetricCard({ label, value, hint, accentColor, theme }) {
   return (
-    <View className="flex-1 rounded-[26px] overflow-hidden border border-white/5">
+    <View className="flex-1 rounded-[26px] overflow-hidden border" style={{ borderColor: theme.border }}>
       <LinearGradient
-        colors={["#09101A", "#0C0F17"]}
+        colors={theme.cardGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{ paddingHorizontal: 16, paddingVertical: 18, minHeight: 132 }}
       >
         <Text
-          className="text-[#A9BCD7] text-[10px] font-bold tracking-[1.6px] uppercase mb-3"
-          style={READABLE_TEXT_STYLE}
+          className="text-[10px] font-bold tracking-[1.6px] uppercase mb-3"
+          style={[READABLE_TEXT_STYLE, { color: theme.textMuted }]}
         >
           {label}
         </Text>
@@ -272,7 +273,7 @@ function MetricCard({ label, value, hint, accentColor }) {
         >
           {value}
         </Text>
-        <Text className="text-[#B6C5DA] text-xs font-medium mt-2" style={READABLE_TEXT_STYLE}>
+        <Text className="text-xs font-medium mt-2" style={[READABLE_TEXT_STYLE, { color: theme.textSoft }]}>
           {hint}
         </Text>
       </LinearGradient>
@@ -280,9 +281,12 @@ function MetricCard({ label, value, hint, accentColor }) {
   );
 }
 
-function MetaRow({ icon, label, value, accentColor }) {
+function MetaRow({ icon, label, value, accentColor, theme }) {
   return (
-    <View className="flex-row items-center rounded-[22px] bg-[#0F131C] px-4 py-4 border border-white/5">
+    <View
+      className="flex-row items-center rounded-[22px] px-4 py-4 border"
+      style={{ backgroundColor: theme.surfaceAlt, borderColor: theme.border }}
+    >
       <View
         className="w-11 h-11 rounded-full items-center justify-center mr-4 border"
         style={{
@@ -294,12 +298,12 @@ function MetaRow({ icon, label, value, accentColor }) {
       </View>
       <View className="flex-1">
         <Text
-          className="text-[#93A9C8] text-[10px] font-bold tracking-[1.6px] uppercase mb-1"
-          style={READABLE_TEXT_STYLE}
+          className="text-[10px] font-bold tracking-[1.6px] uppercase mb-1"
+          style={[READABLE_TEXT_STYLE, { color: theme.textMuted }]}
         >
           {label}
         </Text>
-        <Text className="text-white text-[15px] font-semibold" style={READABLE_TEXT_STYLE}>
+        <Text className="text-[15px] font-semibold" style={[READABLE_TEXT_STYLE, { color: theme.text }]}>
           {value}
         </Text>
       </View>
@@ -314,16 +318,18 @@ function UndoActionCard({
   buttonLabel,
   isUndoing,
   onPress,
+  theme,
 }) {
   return (
     <TouchableOpacity
       activeOpacity={0.86}
       disabled={isUndoing}
       onPress={onPress}
-      className="rounded-[26px] overflow-hidden border border-white/5 mb-4"
+      className="rounded-[26px] overflow-hidden border mb-4"
+      style={{ borderColor: theme.border }}
     >
       <LinearGradient
-        colors={["#111622", "#0E1320", "#091018"]}
+        colors={theme.cardGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{ paddingHorizontal: 16, paddingVertical: 16 }}
@@ -340,12 +346,12 @@ function UndoActionCard({
           </View>
 
           <View className="flex-1 pr-3">
-            <Text className="text-white text-[15px] font-bold tracking-tight" style={READABLE_TEXT_STYLE}>
+            <Text className="text-[15px] font-bold tracking-tight" style={[READABLE_TEXT_STYLE, { color: theme.text }]}>
               {title}
             </Text>
             <Text
-              className="text-[#B6C5DA] text-[12px] font-medium mt-1 leading-5"
-              style={READABLE_TEXT_STYLE}
+              className="text-[12px] font-medium mt-1 leading-5"
+              style={[READABLE_TEXT_STYLE, { color: theme.textSoft }]}
             >
               {subtitle}
             </Text>
@@ -372,6 +378,7 @@ function UndoActionCard({
 }
 
 export default function LoopDetail() {
+  const { theme, isDark } = useAppTheme();
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const loopId = Array.isArray(id) ? id[0] : id;
@@ -569,26 +576,27 @@ export default function LoopDetail() {
 
   if (isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-[#050508] items-center justify-center">
-        <StatusBar style="light" />
-        <ActivityIndicator size="large" color="#72A6FF" />
+      <SafeAreaView className="flex-1 items-center justify-center" style={{ backgroundColor: theme.background }}>
+        <StatusBar style={theme.statusBarStyle} />
+        <ActivityIndicator size="large" color={theme.accentStrong} />
       </SafeAreaView>
     );
   }
 
   if (!loop) {
     return (
-      <SafeAreaView className="flex-1 bg-[#050508] items-center justify-center px-6">
-        <StatusBar style="light" />
-        <Text className="text-white/70 text-base text-center mb-4" style={READABLE_TEXT_STYLE}>
+      <SafeAreaView className="flex-1 items-center justify-center px-6" style={{ backgroundColor: theme.background }}>
+        <StatusBar style={theme.statusBarStyle} />
+        <Text className="text-base text-center mb-4" style={[READABLE_TEXT_STYLE, { color: theme.textSoft }]}>
           {error || "Loop details are unavailable right now."}
         </Text>
         <TouchableOpacity
           onPress={() => loadLoopDetail()}
           activeOpacity={0.85}
-          className="px-5 py-3 rounded-full bg-[#11131A] border border-white/10"
+          className="px-5 py-3 rounded-full border"
+          style={{ backgroundColor: theme.surface, borderColor: theme.borderStrong }}
         >
-          <Text className="text-[#7DA7FF] font-semibold" style={READABLE_TEXT_STYLE}>
+          <Text className="font-semibold" style={[READABLE_TEXT_STYLE, { color: theme.accentSoft }]}>
             Try again
           </Text>
         </TouchableOpacity>
@@ -596,7 +604,9 @@ export default function LoopDetail() {
     );
   }
 
-  const accentColor = loop.color || "#72A6FF";
+  const accentColor = loop.color || theme.accentStrong;
+  const heroGradient = isDark ? ["#122241", "#08192D", "#05070D"] : ["#FFFFFF", "#E6F0FF", "#F6FAFF"];
+  const progressGradient = isDark ? ["#0A1020", "#0A0E17"] : ["#FFFFFF", "#F2F7FF"];
   const todayCheckinKey = loop?.id ? String(loop.id) : loopId ? String(loopId) : null;
   const effectiveTodayCheckins =
     optimisticTodayEntry && todayCheckinKey
@@ -622,10 +632,10 @@ export default function LoopDetail() {
       : "Waiting for today";
 
   const statusTone = isCompletedToday
-    ? "#88F0B6"
+    ? theme.success
     : todayProgress.value > 0
       ? accentColor
-      : "#DDE8FF";
+      : theme.textSoft;
 
   const metaRows = [
     { icon: "repeat", label: "Cadence", value: getCadenceLabel(loop) },
@@ -635,26 +645,31 @@ export default function LoopDetail() {
   ];
 
   return (
-    <SafeAreaView className="flex-1 bg-[#050508]">
-      <StatusBar style="light" />
+    <SafeAreaView className="flex-1" style={{ backgroundColor: theme.background }}>
+      <StatusBar style={theme.statusBarStyle} />
 
       <View className="flex-row items-center justify-between px-4 pt-2 pb-4">
         <TouchableOpacity
           onPress={() => router.back()}
           activeOpacity={0.8}
-          className="w-11 h-11 rounded-full bg-[#08121A] border border-white/5 items-center justify-center"
+          className="w-11 h-11 rounded-full border items-center justify-center"
+          style={{ backgroundColor: theme.surface, borderColor: theme.border }}
         >
-          <Feather name="arrow-left" size={20} color="#DCE8FF" />
+          <Feather name="arrow-left" size={20} color={theme.text} />
         </TouchableOpacity>
 
         <View className="flex-1 px-4 items-center">
           <Text
-            className="text-[#7DA7FF] text-[10px] font-bold tracking-[3px] uppercase mb-1"
-            style={READABLE_TEXT_STYLE}
+            className="text-[10px] font-bold tracking-[3px] uppercase mb-1"
+            style={[READABLE_TEXT_STYLE, { color: theme.accentSoft }]}
           >
             Loop Detail
           </Text>
-          <Text className="text-white text-[17px] font-bold" style={READABLE_TEXT_STYLE} numberOfLines={1}>
+          <Text
+            className="text-[17px] font-bold"
+            style={[READABLE_TEXT_STYLE, { color: theme.text }]}
+            numberOfLines={1}
+          >
             {loop.name}
           </Text>
         </View>
@@ -663,9 +678,10 @@ export default function LoopDetail() {
           onPress={promptDeleteLoop}
           disabled={isDeleting}
           activeOpacity={0.8}
-          className="w-11 h-11 rounded-full bg-[#08121A] border border-white/5 items-center justify-center"
+          className="w-11 h-11 rounded-full border items-center justify-center"
+          style={{ backgroundColor: theme.surface, borderColor: theme.border }}
         >
-          <Feather name="trash-2" size={18} color={isDeleting ? "#ffffff40" : "#FF8E92"} />
+          <Feather name="trash-2" size={18} color={isDeleting ? theme.textMuted : theme.danger} />
         </TouchableOpacity>
       </View>
 
@@ -674,9 +690,9 @@ export default function LoopDetail() {
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 36 }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="rounded-[34px] overflow-hidden border border-white/5 mb-5">
+        <View className="rounded-[34px] overflow-hidden border mb-5" style={{ borderColor: theme.border }}>
           <LinearGradient
-            colors={["#122241", "#08192D", "#05070D"]}
+            colors={heroGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{ paddingHorizontal: 22, paddingVertical: 24, minHeight: 262 }}
@@ -696,30 +712,30 @@ export default function LoopDetail() {
 
             <View className="flex-row items-center justify-between mb-6">
               <Text
-                className="text-[#B6D3FF] text-[10px] font-bold tracking-[2.4px] uppercase"
-                style={READABLE_TEXT_STYLE}
+                className="text-[10px] font-bold tracking-[2.4px] uppercase"
+                style={[READABLE_TEXT_STYLE, { color: isDark ? "#B6D3FF" : theme.accent }]}
               >
                 Active Protocol
               </Text>
               <StatusPill
                 label={isRefreshing ? "Syncing" : "Live"}
-                tone={isRefreshing ? "#FFD88B" : "#8FD9FF"}
-                background={withOpacity("#07111A", "CC")}
-                border={withOpacity(isRefreshing ? "#FFD88B" : "#8FD9FF", "33")}
+                tone={isRefreshing ? theme.warning : accentColor}
+                background={isDark ? withOpacity("#07111A", "CC") : withOpacity("#FFFFFF", "F0")}
+                border={withOpacity(isRefreshing ? theme.warning : accentColor, "33")}
               />
             </View>
 
             <View className="flex-row justify-between items-start mb-6">
               <StatusPill
                 label={loop.category || "General"}
-                tone="#D7E6FF"
-                background={withOpacity("#08111D", "B8")}
+                tone={isDark ? "#D7E6FF" : theme.text}
+                background={isDark ? withOpacity("#08111D", "B8") : withOpacity("#FFFFFF", "E8")}
                 border={withOpacity(accentColor, "30")}
               />
               <StatusPill
                 label={statusLabel}
                 tone={statusTone}
-                background={withOpacity("#0C151F", "B8")}
+                background={isDark ? withOpacity("#0C151F", "B8") : withOpacity("#FFFFFF", "E8")}
                 border={withOpacity(statusTone, "30")}
               />
             </View>
@@ -728,21 +744,21 @@ export default function LoopDetail() {
               className="w-20 h-20 rounded-[28px] items-center justify-center mb-5 border"
               style={{
                 backgroundColor: withOpacity(accentColor, "22"),
-                borderColor: withOpacity("#FFFFFF", "24"),
+                borderColor: withOpacity(isDark ? "#FFFFFF" : accentColor, isDark ? "24" : "30"),
               }}
             >
-              <LoopIcon icon={loop.icon} fallback="repeat" size={34} color="#F3F7FF" />
+              <LoopIcon icon={loop.icon} fallback="repeat" size={34} color={isDark ? "#F3F7FF" : accentColor} />
             </View>
 
             <Text
-              className="text-white text-[36px] font-black tracking-tight leading-10 mb-2"
-              style={READABLE_TEXT_STYLE}
+              className="text-[36px] font-black tracking-tight leading-10 mb-2"
+              style={[READABLE_TEXT_STYLE, { color: theme.text }]}
             >
               {loop.name}
             </Text>
             <Text
-              className="text-[#E5EEFF] text-[14px] font-medium leading-6"
-              style={READABLE_TEXT_STYLE}
+              className="text-[14px] font-medium leading-6"
+              style={[READABLE_TEXT_STYLE, { color: theme.textSoft }]}
             >
               {loopDescription}
             </Text>
@@ -751,17 +767,17 @@ export default function LoopDetail() {
               <View
                 className="px-4 py-3 rounded-[18px] border min-w-[132px]"
                 style={{
-                  backgroundColor: withOpacity("#08111D", "B5"),
+                  backgroundColor: isDark ? withOpacity("#08111D", "B5") : withOpacity("#FFFFFF", "EA"),
                   borderColor: withOpacity(accentColor, "24"),
                 }}
               >
                 <Text
-                  className="text-[#A9BCD7] text-[10px] font-bold tracking-[1.4px] uppercase mb-1"
-                  style={READABLE_TEXT_STYLE}
+                  className="text-[10px] font-bold tracking-[1.4px] uppercase mb-1"
+                  style={[READABLE_TEXT_STYLE, { color: theme.textMuted }]}
                 >
                   Cadence
                 </Text>
-                <Text className="text-white text-sm font-semibold" style={READABLE_TEXT_STYLE}>
+                <Text className="text-sm font-semibold" style={[READABLE_TEXT_STYLE, { color: theme.text }]}>
                   {getCadenceLabel(loop)}
                 </Text>
               </View>
@@ -769,17 +785,17 @@ export default function LoopDetail() {
               <View
                 className="px-4 py-3 rounded-[18px] border min-w-[132px]"
                 style={{
-                  backgroundColor: withOpacity("#08111D", "B5"),
+                  backgroundColor: isDark ? withOpacity("#08111D", "B5") : withOpacity("#FFFFFF", "EA"),
                   borderColor: withOpacity(accentColor, "24"),
                 }}
               >
                 <Text
-                  className="text-[#A9BCD7] text-[10px] font-bold tracking-[1.4px] uppercase mb-1"
-                  style={READABLE_TEXT_STYLE}
+                  className="text-[10px] font-bold tracking-[1.4px] uppercase mb-1"
+                  style={[READABLE_TEXT_STYLE, { color: theme.textMuted }]}
                 >
                   Target
                 </Text>
-                <Text className="text-white text-sm font-semibold" style={READABLE_TEXT_STYLE}>
+                <Text className="text-sm font-semibold" style={[READABLE_TEXT_STYLE, { color: theme.text }]}>
                   {getTargetLabel(loop)}
                 </Text>
               </View>
@@ -793,24 +809,27 @@ export default function LoopDetail() {
             value={String(loop.current_streak || 0)}
             hint="days in motion"
             accentColor={accentColor}
+            theme={theme}
           />
           <MetricCard
             label="Best Streak"
             value={String(loop.best_streak || 0)}
             hint="personal record"
-            accentColor="#9BC0FF"
+            accentColor={isDark ? "#9BC0FF" : theme.accent}
+            theme={theme}
           />
           <MetricCard
             label="Total Check-Ins"
             value={String(loop.total_checkins || 0)}
             hint="all-time completions"
-            accentColor="#88F0B6"
+            accentColor={theme.success}
+            theme={theme}
           />
         </View>
 
-        <View className="rounded-[30px] overflow-hidden border border-white/5 mb-5">
+        <View className="rounded-[30px] overflow-hidden border mb-5" style={{ borderColor: theme.border }}>
           <LinearGradient
-            colors={["#0A1020", "#0A0E17"]}
+            colors={progressGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{ paddingHorizontal: 20, paddingVertical: 20 }}
@@ -818,20 +837,20 @@ export default function LoopDetail() {
             <View className="flex-row items-end justify-between mb-4">
               <View className="flex-1 pr-4">
                 <Text
-                  className="text-[#7DA7FF] text-[10px] font-bold tracking-[2.4px] uppercase mb-1"
-                  style={READABLE_TEXT_STYLE}
+                  className="text-[10px] font-bold tracking-[2.4px] uppercase mb-1"
+                  style={[READABLE_TEXT_STYLE, { color: theme.accentSoft }]}
                 >
                   Today&apos;s Progress
                 </Text>
                 <Text
-                  className="text-white text-[28px] font-black tracking-tight mb-1"
-                  style={READABLE_TEXT_STYLE}
+                  className="text-[28px] font-black tracking-tight mb-1"
+                  style={[READABLE_TEXT_STYLE, { color: theme.text }]}
                 >
                   {progressLabel}
                 </Text>
                 <Text
-                  className="text-[#C5D4EA] text-[13px] font-medium leading-5"
-                  style={READABLE_TEXT_STYLE}
+                  className="text-[13px] font-medium leading-5"
+                  style={[READABLE_TEXT_STYLE, { color: theme.textSoft }]}
                 >
                   {remainingLabel}
                 </Text>
@@ -853,7 +872,7 @@ export default function LoopDetail() {
               </View>
             </View>
 
-            <View className="h-3 rounded-full bg-[#151B28] overflow-hidden mb-4">
+            <View className="h-3 rounded-full overflow-hidden mb-4" style={{ backgroundColor: theme.surfaceSoft }}>
               <View
                 className="h-full rounded-full"
                 style={{
@@ -864,7 +883,7 @@ export default function LoopDetail() {
             </View>
 
             <View className="flex-row items-center justify-between">
-              <Text className="text-[#B6C5DA] text-[11px] font-semibold" style={READABLE_TEXT_STYLE}>
+              <Text className="text-[11px] font-semibold" style={[READABLE_TEXT_STYLE, { color: theme.textSoft }]}>
                 {swipeHint}
               </Text>
               <Text
@@ -877,22 +896,22 @@ export default function LoopDetail() {
           </LinearGradient>
         </View>
 
-        <View className="bg-[#0B0F16] rounded-[28px] p-5 border border-white/5 mb-5">
+        <View className="rounded-[28px] p-5 border mb-5" style={{ backgroundColor: theme.surface, borderColor: theme.border }}>
           <View className="flex-row items-end justify-between mb-4">
             <View>
               <Text
-                className="text-[#7DA7FF] text-[10px] font-bold tracking-[2.4px] uppercase mb-1"
-                style={READABLE_TEXT_STYLE}
+                className="text-[10px] font-bold tracking-[2.4px] uppercase mb-1"
+                style={[READABLE_TEXT_STYLE, { color: theme.accentSoft }]}
               >
                 Loop DNA
               </Text>
-              <Text className="text-white text-xl font-bold tracking-tight" style={READABLE_TEXT_STYLE}>
+              <Text className="text-xl font-bold tracking-tight" style={[READABLE_TEXT_STYLE, { color: theme.text }]}>
                 Behavior profile
               </Text>
             </View>
             <Text
-              className="text-[#97ABC7] text-[10px] font-bold tracking-[1.4px] uppercase"
-              style={READABLE_TEXT_STYLE}
+              className="text-[10px] font-bold tracking-[1.4px] uppercase"
+              style={[READABLE_TEXT_STYLE, { color: theme.textMuted }]}
             >
               Server Synced
             </Text>
@@ -906,26 +925,27 @@ export default function LoopDetail() {
                 label={row.label}
                 value={row.value}
                 accentColor={accentColor}
+                theme={theme}
               />
             ))}
           </View>
         </View>
 
-        <View className="bg-[#0B0F16] rounded-[28px] p-5 border border-white/5 mb-5">
+        <View className="rounded-[28px] p-5 border mb-5" style={{ backgroundColor: theme.surface, borderColor: theme.border }}>
           <View className="flex-row items-end justify-between mb-5">
             <View className="flex-1 pr-4">
               <Text
-                className="text-[#7DA7FF] text-[10px] font-bold tracking-[2.4px] uppercase mb-1"
-                style={READABLE_TEXT_STYLE}
+                className="text-[10px] font-bold tracking-[2.4px] uppercase mb-1"
+                style={[READABLE_TEXT_STYLE, { color: theme.accentSoft }]}
               >
                 Weekly Pulse
               </Text>
-              <Text className="text-white text-xl font-bold tracking-tight mb-1" style={READABLE_TEXT_STYLE}>
+              <Text className="text-xl font-bold tracking-tight mb-1" style={[READABLE_TEXT_STYLE, { color: theme.text }]}>
                 Recent momentum
               </Text>
               <Text
-                className="text-[#B6C5DA] text-[12px] font-medium leading-5"
-                style={READABLE_TEXT_STYLE}
+                className="text-[12px] font-medium leading-5"
+                style={[READABLE_TEXT_STYLE, { color: theme.textSoft }]}
               >
                 {recentCheckins
                   ? `${recentCheckins} completions across ${activeWeeks} active week${
@@ -948,7 +968,7 @@ export default function LoopDetail() {
               <View key={bar.key} className="items-center flex-1">
                 <Text
                   className="text-[10px] font-bold mb-2"
-                  style={[READABLE_TEXT_STYLE, { color: bar.active ? accentColor : "#8FA3C0" }]}
+                  style={[READABLE_TEXT_STYLE, { color: bar.active ? accentColor : theme.textMuted }]}
                 >
                   {bar.count}
                 </Text>
@@ -957,14 +977,14 @@ export default function LoopDetail() {
                     className="w-7 rounded-t-[12px] rounded-b-[8px]"
                     style={{
                       height: `${bar.height}%`,
-                      backgroundColor: bar.active ? accentColor : "#1A1C24",
+                      backgroundColor: bar.active ? accentColor : theme.surfaceSoft,
                       opacity: bar.active ? 1 : 0.8,
                     }}
                   />
                 </View>
                 <Text
-                  className="text-[#97ABC7] text-[9px] font-bold tracking-[1px] mt-3"
-                  style={READABLE_TEXT_STYLE}
+                  className="text-[9px] font-bold tracking-[1px] mt-3"
+                  style={[READABLE_TEXT_STYLE, { color: theme.textMuted }]}
                 >
                   {bar.label.replace("WK ", "")}
                 </Text>
@@ -981,7 +1001,10 @@ export default function LoopDetail() {
         />
       </ScrollView>
 
-      <View className="px-4 pb-4 pt-3 border-t border-white/5 bg-[#050508]">
+      <View
+        className="px-4 pb-4 pt-3 border-t"
+        style={{ borderColor: theme.border, backgroundColor: theme.background }}
+      >
         {canUndoToday ? (
           <UndoActionCard
             accentColor={accentColor}
@@ -990,12 +1013,13 @@ export default function LoopDetail() {
             buttonLabel={undoCopy.buttonLabel}
             isUndoing={isUndoing}
             onPress={() => setIsRevokeModalVisible(true)}
+            theme={theme}
           />
         ) : null}
 
         <Text
-          className="text-[#B6C5DA] text-[11px] font-semibold tracking-[1.4px] uppercase mb-3 text-center"
-          style={READABLE_TEXT_STYLE}
+          className="text-[11px] font-semibold tracking-[1.4px] uppercase mb-3 text-center"
+          style={[READABLE_TEXT_STYLE, { color: theme.textSoft }]}
         >
           {isCompletedToday
             ? canUndoToday

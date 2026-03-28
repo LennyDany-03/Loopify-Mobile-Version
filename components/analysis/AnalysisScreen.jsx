@@ -1,6 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Image, ScrollView, Text, View, RefreshControl } from "react-native";
+import {
+  ActivityIndicator,
+  AppState,
+  Image,
+  ScrollView,
+  Text,
+  View,
+  RefreshControl,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import CompletionRing from "./CompletionRing";
 import FocusAreas from "./FocusAreas";
@@ -14,6 +22,7 @@ import {
   buildCategoryPercents,
   isLoopCompletedToday,
 } from "../../lib/utils/loopMetrics";
+import useAppTheme from "../../lib/hooks/useAppTheme";
 
 function getReferenceDate(serverDate) {
   if (!serverDate) {
@@ -46,6 +55,7 @@ function buildCategoryTotals(loops = []) {
 }
 
 export default function AnalysisScreen() {
+  const { theme } = useAppTheme();
   const tabIndex = useNavStore((state) => state.tabIndex);
   const loops = useLoopStore((state) => state.loops);
   const summary = useLoopStore((state) => state.summary);
@@ -248,7 +258,7 @@ export default function AnalysisScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#050508]">
+    <SafeAreaView className="flex-1" style={{ backgroundColor: theme.background }}>
       <View className="flex-row items-center justify-between px-6 py-4">
         <View className="flex-row items-center gap-3">
           <Image
@@ -256,7 +266,9 @@ export default function AnalysisScreen() {
             className="w-8 h-8"
             resizeMode="contain"
           />
-          <Text className="text-[22px] font-bold text-[#4F8EF7] italic tracking-tight">Loopify</Text>
+          <Text className="text-[22px] font-bold italic tracking-tight" style={{ color: theme.logo }}>
+            Loopify
+          </Text>
         </View>
       </View>
 
@@ -264,22 +276,25 @@ export default function AnalysisScreen() {
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl 
-            refreshing={isRefreshing} 
-            onRefresh={onRefresh} 
-            tintColor="#4F8EF7" 
-            colors={["#4F8EF7"]}
-            progressBackgroundColor="#1A253A"
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.accent}
+            colors={[theme.accent]}
+            progressBackgroundColor={theme.refreshBackground}
           />
         }
       >
-        <View className="bg-[#0B0D14] border border-white/5 rounded-[40px] p-8 mb-6 mt-2">
-          <Text className="text-white/60 text-sm font-bold tracking-tight mb-8">
+        <View
+          className="border rounded-[40px] p-8 mb-6 mt-2"
+          style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+        >
+          <Text className="text-sm font-bold tracking-tight mb-8" style={{ color: theme.textSoft }}>
             Performance Summary
           </Text>
           {isLoading && !summary ? (
             <View className="py-12 items-center">
-              <ActivityIndicator size="large" color="#4F8EF7" />
+              <ActivityIndicator size="large" color={theme.accent} />
             </View>
           ) : (
             <CompletionRing
@@ -290,17 +305,28 @@ export default function AnalysisScreen() {
           )}
         </View>
 
-        <View className="bg-[#0B0D14] border border-white/5 rounded-[40px] p-8 mb-6">
+        <View
+          className="border rounded-[40px] p-8 mb-6"
+          style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+        >
           <View className="flex-row justify-between items-start mb-6">
             <View>
-              <Text className="text-white text-xl font-bold tracking-tight">Loop Trends</Text>
-              <Text className="text-white/40 text-xs mt-1">Last 12 weeks performance</Text>
+              <Text className="text-xl font-bold tracking-tight" style={{ color: theme.text }}>
+                Loop Trends
+              </Text>
+              <Text className="text-xs mt-1" style={{ color: theme.textMuted }}>
+                Last 12 weeks performance
+              </Text>
             </View>
-            <View className="flex-row items-center bg-[#1A1C24] px-3 py-1.5 rounded-full">
+            <View
+              className="flex-row items-center px-3 py-1.5 rounded-full"
+              style={{ backgroundColor: theme.surfaceSoft }}
+            >
               <View
-                className={`w-2 h-2 rounded-full mr-2 ${isRefreshing ? "bg-[#FFD88B]" : "bg-[#4F8EF7]"}`}
+                className="w-2 h-2 rounded-full mr-2"
+                style={{ backgroundColor: isRefreshing ? theme.warning : theme.accent }}
               />
-              <Text className="text-white/60 text-[10px] font-bold tracking-widest uppercase">
+              <Text className="text-[10px] font-bold tracking-widest uppercase" style={{ color: theme.textSoft }}>
                 {isRefreshing ? "Syncing" : "Live"}
               </Text>
             </View>
@@ -309,22 +335,38 @@ export default function AnalysisScreen() {
         </View>
 
         <View className="flex-row gap-4 mb-8">
-          <View className="flex-1 bg-[#0B0D14] border border-white/5 rounded-[40px] p-6">
-            <Text className="text-white font-bold text-base mb-6">Focus Areas</Text>
+          <View
+            className="flex-1 border rounded-[40px] p-6"
+            style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+          >
+            <Text className="font-bold text-base mb-6" style={{ color: theme.text }}>
+              Focus Areas
+            </Text>
             {focusData.length ? (
               <FocusAreas data={focusData} />
             ) : (
-              <Text className="text-white/40 text-sm">No category data yet.</Text>
+              <Text className="text-sm" style={{ color: theme.textMuted }}>
+                No category data yet.
+              </Text>
             )}
           </View>
 
-          <View className="w-[35%] bg-[#0B0D14] border border-white/5 rounded-[40px] items-center justify-center p-4">
-            <View className="w-16 h-16 rounded-full border-2 border-[#4F8EF7]/20 items-center justify-center mb-4">
-              <View className="w-12 h-12 rounded-full border-2 border-[#4F8EF7] items-center justify-center">
-                <Ionicons name="sparkles" size={16} color="#72A6FF" />
+          <View
+            className="w-[35%] border rounded-[40px] items-center justify-center p-4"
+            style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+          >
+            <View
+              className="w-16 h-16 rounded-full border-2 items-center justify-center mb-4"
+              style={{ borderColor: `${theme.accent}33` }}
+            >
+              <View
+                className="w-12 h-12 rounded-full border-2 items-center justify-center"
+                style={{ borderColor: theme.accent }}
+              >
+                <Ionicons name="sparkles" size={16} color={theme.accentStrong} />
               </View>
             </View>
-            <Text className="text-[#72A6FF] text-[10px] font-bold text-center tracking-widest uppercase">
+            <Text className="text-[10px] font-bold text-center tracking-widest uppercase" style={{ color: theme.accentStrong }}>
               {summary?.loops_on_streak_today ?? 0}{"\n"}Loops{"\n"}On Streak
             </Text>
           </View>
@@ -333,7 +375,7 @@ export default function AnalysisScreen() {
         <View className="mb-4">
           <HeatmapGrid
             data={globalHeatmap}
-            color="#4F8EF7"
+            color={theme.accent}
             title="Global Velocity"
             subtitle="Overall activity density across all loops"
             targetValue={loops.length > 0 ? loops.length : 1}
@@ -341,7 +383,11 @@ export default function AnalysisScreen() {
           />
         </View>
 
-        {!!error && <Text className="text-red-300 text-sm mt-4 px-2">{error}</Text>}
+        {!!error && (
+          <Text className="text-sm mt-4 px-2" style={{ color: theme.danger }}>
+            {error}
+          </Text>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

@@ -6,11 +6,13 @@ import { requireOptionalNativeModule } from "expo-modules-core";
 import useAuthStore from "../../lib/store/useAuthStore";
 import { usersAPI } from "../../lib/api";
 import { useEffect, useState } from "react";
+import useAppTheme from "../../lib/hooks/useAppTheme";
+import { withOpacity } from "../../lib/theme";
 
 const SYMBOLS = [
   "zap", "star", "navigation", "award",
   "aperture", "cpu", "sun", "heart",
-  "anchor", "hexagon", "cloud-lightning", "globe"
+  "anchor", "hexagon", "cloud-lightning", "globe",
 ];
 
 function sanitizeUsername(value = "") {
@@ -34,26 +36,29 @@ function buildDisplayUsername(user) {
   return normalized ? `@${normalized}` : "";
 }
 
-function InputField({ label, value, onChangeText, editable = true, icon }) {
-// ... existing InputField
+function InputField({ label, value, onChangeText, editable = true, icon, theme }) {
   return (
     <View className="mb-5">
-      <Text className="text-white/60 text-[10px] font-bold mb-2 ml-1 tracking-wide">
+      <Text className="text-[10px] font-bold mb-2 ml-1 tracking-wide" style={{ color: theme.textMuted }}>
         {label}
       </Text>
-      <View className="flex-row items-center bg-[#0F121A] rounded-[20px] px-5 py-4 border border-white/5">
+      <View
+        className="flex-row items-center rounded-[20px] px-5 py-4 border"
+        style={{ backgroundColor: theme.input, borderColor: theme.border }}
+      >
         <TextInput
           value={value}
           onChangeText={onChangeText}
           editable={editable}
-          className="flex-1 text-white text-[15px] font-bold tracking-wide"
-          placeholderTextColor="rgba(255,255,255,0.3)"
+          className="flex-1 text-[15px] font-bold tracking-wide"
+          style={{ color: theme.text }}
+          placeholderTextColor={theme.textSubtle}
         />
         <View className="ml-3 opacity-60">
-          <Feather 
-            name={icon || (editable ? "edit-2" : "lock")} 
-            size={14} 
-            color={editable ? "#7CA6FF" : "#FFFFFF"} 
+          <Feather
+            name={icon || (editable ? "edit-2" : "lock")}
+            size={14}
+            color={editable ? theme.accentSoft : theme.text}
           />
         </View>
       </View>
@@ -62,6 +67,7 @@ function InputField({ label, value, onChangeText, editable = true, icon }) {
 }
 
 export default function EditProfile() {
+  const { theme, isDark } = useAppTheme();
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const updateUser = useAuthStore((state) => state.updateUser);
@@ -160,7 +166,7 @@ export default function EditProfile() {
         mediaTypes: ["images"],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.2, // Keep it extremely small for db base64 save
+        quality: 0.2,
         base64: true,
       });
 
@@ -195,25 +201,24 @@ export default function EditProfile() {
       const payload = {
         username: normalizedUsername,
         full_name: normalizedFullName,
-        symbol: activeSymbol
+        symbol: activeSymbol,
       };
-      
+
       if (newAvatarBase64) {
         payload.avatar_url = newAvatarBase64;
       }
-      
+
       const response = await usersAPI.updateMe(payload);
       const profile = response?.data?.profile || payload;
-      
+
       if (user) {
-        // Update local Zustand store so app UI reflects changes immediately
         await updateUser({
           ...user,
           ...profile,
           avatar_url: profile.avatar_url || newAvatarBase64 || user.avatar_url,
         });
       }
-      
+
       router.back();
     } catch (e) {
       console.error("Save error:", e);
@@ -224,70 +229,87 @@ export default function EditProfile() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#090A0E]">
+    <SafeAreaView className="flex-1" style={{ backgroundColor: theme.backgroundAlt }}>
       <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-        
-        {/* Top Navigation Bar */}
         <View className="flex-row items-center justify-between mb-8">
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => router.back()}
-            className="w-10 h-10 items-center justify-center rounded-full bg-white/5 border border-white/5 active:bg-white/10"
+            className="w-10 h-10 items-center justify-center rounded-full border"
+            style={{ backgroundColor: theme.surfaceAlt, borderColor: theme.border }}
           >
-            <Feather name="arrow-left" size={18} color="#7CA6FF" />
+            <Feather name="arrow-left" size={18} color={theme.accentSoft} />
           </TouchableOpacity>
 
-          <Text className="text-[#88AFFF] text-lg font-black tracking-tight ml-4">Loopify</Text>
+          <Text className="text-lg font-black tracking-tight ml-4" style={{ color: theme.logo }}>
+            Loopify
+          </Text>
 
-          {/* Invisible spacer to perfectly center the logo */}
           <View className="w-10 h-10" />
         </View>
 
-        {/* Profile Image Editor */}
         <View className="items-center mb-8">
           <View className="relative">
-            <View className="w-24 h-24 rounded-full border-2 border-[#1E2536] items-center justify-center overflow-hidden bg-[#0B0D14]">
+            <View
+              className="w-24 h-24 rounded-full border-2 items-center justify-center overflow-hidden"
+              style={{ borderColor: theme.surfaceRaised, backgroundColor: theme.surface }}
+            >
               {displayAvatar ? (
                 <Image source={{ uri: displayAvatar }} className="w-full h-full" resizeMode="cover" />
               ) : (
-                <Text className="text-[#7CA6FF] text-4xl font-black">{initial}</Text>
+                <Text className="text-4xl font-black" style={{ color: theme.accentSoft }}>
+                  {initial}
+                </Text>
               )}
             </View>
-            <TouchableOpacity onPress={pickImage} className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-[#7CA6FF] border-2 border-[#090A0E] items-center justify-center shadow-lg shadow-[#7CA6FF]/50 active:bg-[#4F8EF7]">
-              <Feather name="edit-2" size={12} color="#0D1B36" />
+            <TouchableOpacity
+              onPress={pickImage}
+              className="absolute bottom-0 right-0 w-8 h-8 rounded-full border-2 items-center justify-center"
+              style={{
+                backgroundColor: theme.accentSoft,
+                borderColor: theme.backgroundAlt,
+              }}
+            >
+              <Feather name="edit-2" size={12} color={theme.accentContrast} />
             </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={pickImage} className="mt-4 active:opacity-70">
-            <Text className="text-[#7CA6FF] text-[10px] font-bold tracking-[2px] uppercase">
+          <TouchableOpacity onPress={pickImage} className="mt-4">
+            <Text className="text-[10px] font-bold tracking-[2px] uppercase" style={{ color: theme.accentSoft }}>
               Edit Profile Image
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Input Forms */}
         <View className="mb-4">
-          <InputField 
-            label="Username" 
-            value={username} 
+          <InputField
+            label="Username"
+            value={username}
             onChangeText={setUsername}
             icon="at-sign"
+            theme={theme}
           />
-          <InputField 
-            label="Email Address" 
-            value={user?.email || ""} 
-            editable={false} 
+          <InputField
+            label="Email Address"
+            value={user?.email || ""}
+            editable={false}
             icon="mail"
+            theme={theme}
           />
-          <InputField 
-            label="Full Name" 
-            value={fullName} 
-            onChangeText={setFullName} 
+          <InputField
+            label="Full Name"
+            value={fullName}
+            onChangeText={setFullName}
             icon="user"
+            theme={theme}
           />
         </View>
 
-        {/* Symbol Grid */}
-        <Text className="text-white text-[15px] font-bold mb-4 ml-1">Choose Your Symbol</Text>
-        <View className="bg-[#0F121A] rounded-[32px] p-6 border border-white/5 mb-8">
+        <Text className="text-[15px] font-bold mb-4 ml-1" style={{ color: theme.text }}>
+          Choose Your Symbol
+        </Text>
+        <View
+          className="rounded-[32px] p-6 border mb-8"
+          style={{ backgroundColor: theme.input, borderColor: theme.border }}
+        >
           <View className="flex-row flex-wrap justify-between gap-y-6">
             {SYMBOLS.map((symbol) => {
               const isActive = activeSymbol === symbol;
@@ -295,14 +317,18 @@ export default function EditProfile() {
                 <TouchableOpacity
                   key={symbol}
                   onPress={() => setActiveSymbol(symbol)}
-                  className={`w-[52px] h-[52px] rounded-full items-center justify-center border ${
-                    isActive ? "bg-[#7CA6FF]/20 border-[#7CA6FF]" : "bg-white/5 border-transparent"
-                  }`}
+                  className="w-[52px] h-[52px] rounded-full items-center justify-center border"
+                  style={{
+                    backgroundColor: isActive
+                      ? withOpacity(theme.accentSoft, isDark ? 0.2 : 0.12)
+                      : withOpacity(theme.text, 0.04),
+                    borderColor: isActive ? theme.accentSoft : "transparent",
+                  }}
                 >
-                  <Feather 
-                    name={symbol} 
-                    size={20} 
-                    color={isActive ? "#7CA6FF" : "rgba(255,255,255,0.5)"} 
+                  <Feather
+                    name={symbol}
+                    size={20}
+                    color={isActive ? theme.accentSoft : theme.textMuted}
                   />
                 </TouchableOpacity>
               );
@@ -310,16 +336,20 @@ export default function EditProfile() {
           </View>
         </View>
 
-        {/* Save Button */}
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={handleSave}
           disabled={isSaving}
           activeOpacity={0.8}
-          className={`w-full bg-[#7CA6FF] items-center justify-center py-[18px] rounded-full shadow-lg shadow-[#7CA6FF]/30 ${isSaving ? 'opacity-50' : 'opacity-100'}`}
+          className="w-full items-center justify-center py-[18px] rounded-full"
+          style={{
+            backgroundColor: theme.accentSoft,
+            opacity: isSaving ? 0.5 : 1,
+          }}
         >
-          <Text className="text-[#0D1B36] font-bold text-[15px]">{isSaving ? "Saving..." : "Save Changes"}</Text>
+          <Text className="font-bold text-[15px]" style={{ color: theme.accentContrast }}>
+            {isSaving ? "Saving..." : "Save Changes"}
+          </Text>
         </TouchableOpacity>
-
       </ScrollView>
     </SafeAreaView>
   );

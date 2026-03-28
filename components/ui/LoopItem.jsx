@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import { useRef } from "react";
 import LoopIcon from "./LoopIcon";
+import useAppTheme from "../../lib/hooks/useAppTheme";
 
 export default function LoopItem({
   loop,
@@ -8,6 +9,7 @@ export default function LoopItem({
   onPress,
   onLongPressLoop,
 }) {
+  const { theme, isDark } = useAppTheme();
   const suppressNextPress = useRef(false);
 
   function handlePress() {
@@ -36,37 +38,44 @@ export default function LoopItem({
       onLongPress={handleLongPress}
       delayLongPress={320}
       activeOpacity={0.78}
-      className={`
-        flex-row items-center px-4 py-4 mb-3 rounded-[24px] border
-        ${isChecked
-          ? "bg-[#0F1522] border-[#7AA7FF]/25"
-          : "bg-[#0A0D13] border-white/5"}
-      `}
+      className="flex-row items-center px-4 py-4 mb-3 rounded-[24px] border"
+      style={{
+        backgroundColor: isChecked
+          ? isDark ? "#0F1522" : "#EAF2FF"
+          : theme.surface,
+        borderColor: isChecked
+          ? isDark ? "rgba(122, 167, 255, 0.25)" : "rgba(47, 111, 214, 0.18)"
+          : theme.border,
+      }}
     >
       <View
-        className={`
-          w-12 h-12 rounded-full items-center justify-center mr-4 border
-          ${isChecked
-            ? "bg-[#121B2E] border-[#7AA7FF]/40"
-            : "bg-[#12151C] border-white/5"}
-        `}
+        className="w-12 h-12 rounded-full items-center justify-center mr-4 border"
+        style={{
+          backgroundColor: isChecked
+            ? isDark ? "#121B2E" : "#DDE8FA"
+            : theme.surfaceAlt,
+          borderColor: isChecked
+            ? isDark ? "rgba(122, 167, 255, 0.4)" : "rgba(47, 111, 214, 0.24)"
+            : theme.border,
+        }}
       >
         <LoopIcon
           icon={loop.icon}
           fallback="repeat"
           size={20}
-          color={isChecked ? "#7AA7FF" : "#FFFFFF80"}
+          color={isChecked ? theme.accentSoft : theme.textMuted}
         />
       </View>
 
       <View className="flex-1 min-w-0 pr-2">
         <Text
-          className="font-bold text-[16px] text-white tracking-tight"
+          className="font-bold text-[16px] tracking-tight"
+          style={{ color: theme.text }}
           numberOfLines={1}
         >
           {title}
         </Text>
-        <Text className="text-white/40 text-[12px] mt-1" numberOfLines={1}>
+        <Text className="text-[12px] mt-1" style={{ color: theme.textMuted }} numberOfLines={1}>
           {subtitle}
         </Text>
       </View>

@@ -17,6 +17,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import useLoopStore from "../../lib/store/useLoopStore";
+import useAppTheme from "../../lib/hooks/useAppTheme";
+import { withOpacity } from "../../lib/theme";
 
 const CATEGORY_OPTIONS = [
   { label: "Health", value: "Health" },
@@ -161,6 +163,7 @@ function getDefaultUnit(targetType) {
 }
 
 export default function CreateLoopScreen() {
+  const { theme, isDark } = useAppTheme();
   const router = useRouter();
   const createLoop = useLoopStore((state) => state.createLoop);
   const fetchSummary = useLoopStore((state) => state.fetchSummary);
@@ -179,6 +182,9 @@ export default function CreateLoopScreen() {
 
   const accentColor = getAccentColor(category);
   const previewLabel = name.trim() ? name.trim().toUpperCase() : "INITIALIZING NEW LOOP";
+  const previewGradient = isDark
+    ? ["#05101D", "#0C2A4D", "#08111C"]
+    : ["#F7FBFF", "#DDEBFF", "#EEF4FF"];
 
   useEffect(() => {
     if (!hasCustomIcon) {
@@ -275,8 +281,8 @@ export default function CreateLoopScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-[#0A0A0D]">
-      <StatusBar style="light" />
+    <SafeAreaView className="flex-1" style={{ backgroundColor: theme.backgroundAlt }}>
+      <StatusBar style={theme.statusBarStyle} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"
@@ -288,9 +294,9 @@ export default function CreateLoopScreen() {
               className="w-10 h-10 items-center justify-center mr-1"
               activeOpacity={0.7}
             >
-              <Feather name="arrow-left" size={22} color="#7DA7FF" />
+              <Feather name="arrow-left" size={22} color={theme.accentSoft} />
             </TouchableOpacity>
-            <Text className="text-[32px] font-bold text-[#6FA1F8] tracking-tight">
+            <Text className="text-[32px] font-bold tracking-tight" style={{ color: theme.logo }}>
               Create New Loop
             </Text>
           </View>
@@ -298,7 +304,7 @@ export default function CreateLoopScreen() {
             className="w-10 h-10 items-center justify-center"
             activeOpacity={0.7}
           >
-            <Feather name="more-vertical" size={20} color="#ffffff80" />
+            <Feather name="more-vertical" size={20} color={theme.textMuted} />
           </TouchableOpacity>
         </View>
 
@@ -306,9 +312,9 @@ export default function CreateLoopScreen() {
           contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 28 }}
           showsVerticalScrollIndicator={false}
         >
-          <View className="rounded-[30px] overflow-hidden mb-8 border border-[#1F3354]">
+          <View className="rounded-[30px] overflow-hidden mb-8 border" style={{ borderColor: withOpacity(accentColor, 0.22) }}>
             <LinearGradient
-              colors={["#05101D", "#0C2A4D", "#08111C"]}
+              colors={previewGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{ minHeight: 172, paddingHorizontal: 24, paddingVertical: 22 }}
@@ -316,22 +322,22 @@ export default function CreateLoopScreen() {
               <View className="absolute inset-0 items-center justify-center">
                 <View
                   className="w-[280px] h-[280px] rounded-full"
-                  style={{ borderWidth: 1, borderColor: "#4F8EF71A" }}
+                  style={{ borderWidth: 1, borderColor: withOpacity(accentColor, 0.1) }}
                 />
               </View>
               <View className="absolute inset-0 items-center justify-center">
                 <View
                   className="w-[210px] h-[210px] rounded-full"
-                  style={{ borderWidth: 1, borderColor: "#72A6FF20" }}
+                  style={{ borderWidth: 1, borderColor: withOpacity(accentColor, 0.14) }}
                 />
               </View>
               <View className="absolute inset-0 items-center justify-center">
                 <View
                   className="w-[120px] h-[120px] rounded-full"
                   style={{
-                    backgroundColor: "#8AB4FF22",
+                    backgroundColor: withOpacity(accentColor, 0.12),
                     borderWidth: 1,
-                    borderColor: "#D9E6FF30",
+                    borderColor: withOpacity(isDark ? "#D9E6FF" : accentColor, 0.18),
                   }}
                 />
               </View>
@@ -340,14 +346,17 @@ export default function CreateLoopScreen() {
                 <View
                   className="w-20 h-20 rounded-full items-center justify-center mb-5"
                   style={{
-                    backgroundColor: "#B6D0FF22",
+                    backgroundColor: withOpacity(accentColor, 0.14),
                     borderWidth: 1,
-                    borderColor: "#D9E6FF40",
+                    borderColor: withOpacity(accentColor, 0.24),
                   }}
                 >
                   <Feather name={iconName} size={32} color={accentColor} />
                 </View>
-                <Text className="text-[#D9E5F7] text-[15px] font-bold tracking-[2px] text-center">
+                <Text
+                  className="text-[15px] font-bold tracking-[2px] text-center"
+                  style={{ color: isDark ? "#D9E5F7" : theme.text }}
+                >
                   {previewLabel}
                 </Text>
               </View>
@@ -355,22 +364,23 @@ export default function CreateLoopScreen() {
           </View>
 
           <View className="mb-8">
-            <Text className="text-[#6FA1F8] text-[11px] font-bold tracking-[3px] uppercase mb-4">
+            <Text className="text-[11px] font-bold tracking-[3px] uppercase mb-4" style={{ color: theme.accent }}>
               Loop Name
             </Text>
-            <View className="bg-[#171718] rounded-[26px] px-5 py-5 border border-white/5">
+            <View className="rounded-[26px] px-5 py-5 border" style={{ backgroundColor: theme.input, borderColor: theme.border }}>
               <TextInput
                 value={name}
                 onChangeText={setName}
                 placeholder="Enter loop identity..."
-                placeholderTextColor="#FFFFFF40"
-                className="text-white text-base font-semibold"
+                placeholderTextColor={theme.textMuted}
+                className="text-base font-semibold"
+                style={{ color: theme.text }}
               />
             </View>
           </View>
 
           <View className="mb-8">
-            <Text className="text-[#6FA1F8] text-[11px] font-bold tracking-[3px] uppercase mb-4">
+            <Text className="text-[11px] font-bold tracking-[3px] uppercase mb-4" style={{ color: theme.accent }}>
               Category
             </Text>
             <View className="flex-row flex-wrap gap-3">
@@ -382,18 +392,18 @@ export default function CreateLoopScreen() {
                     key={option.value}
                     onPress={() => setCategory(option.value)}
                     activeOpacity={0.8}
-                    className={`rounded-full px-4 py-4 border ${
-                      isActive
-                        ? "bg-[#222A3D] border-[#4F8EF7]"
-                        : "bg-[#151515] border-white/5"
-                    }`}
+                    className="rounded-full px-4 py-4 border"
+                    style={{
+                      backgroundColor: isActive ? withOpacity(accentColor, 0.14) : theme.input,
+                      borderColor: isActive ? accentColor : theme.border,
+                    }}
                   >
                     <View className="flex-row items-center justify-center">
                       <View
                         className="w-2 h-2 rounded-full mr-2"
-                        style={{ backgroundColor: isActive ? accentColor : "#4C4C4C" }}
+                        style={{ backgroundColor: isActive ? accentColor : theme.textSubtle }}
                       />
-                      <Text className={`font-semibold ${isActive ? "text-white" : "text-white/55"}`}>
+                      <Text className="font-semibold" style={{ color: isActive ? theme.text : theme.textMuted }}>
                         {option.label}
                       </Text>
                     </View>
@@ -405,15 +415,16 @@ export default function CreateLoopScreen() {
 
           <View className="mb-8">
             <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-[#6FA1F8] text-[11px] font-bold tracking-[3px] uppercase">
+              <Text className="text-[11px] font-bold tracking-[3px] uppercase" style={{ color: theme.accent }}>
                 Loop Icon
               </Text>
               <TouchableOpacity
                 onPress={resetSuggestedIcon}
                 activeOpacity={0.8}
-                className="px-3 py-2 rounded-full bg-[#171718] border border-white/5"
+                className="px-3 py-2 rounded-full border"
+                style={{ backgroundColor: theme.input, borderColor: theme.border }}
               >
-                <Text className="text-white/55 text-[11px] font-semibold">
+                <Text className="text-[11px] font-semibold" style={{ color: theme.textMuted }}>
                   Use Suggested
                 </Text>
               </TouchableOpacity>
@@ -428,16 +439,16 @@ export default function CreateLoopScreen() {
                     key={icon}
                     onPress={() => handleIconSelect(icon)}
                     activeOpacity={0.8}
-                    className={`w-14 h-14 rounded-2xl items-center justify-center border ${
-                      isActive
-                        ? "bg-[#223251] border-[#4F8EF7]"
-                        : "bg-[#171718] border-white/5"
-                    }`}
+                    className="w-14 h-14 rounded-2xl items-center justify-center border"
+                    style={{
+                      backgroundColor: isActive ? withOpacity(accentColor, 0.14) : theme.input,
+                      borderColor: isActive ? accentColor : theme.border,
+                    }}
                   >
                     <Feather
                       name={icon}
                       size={20}
-                      color={isActive ? accentColor : "#ffffff80"}
+                      color={isActive ? accentColor : theme.textMuted}
                     />
                   </TouchableOpacity>
                 );
@@ -446,7 +457,7 @@ export default function CreateLoopScreen() {
           </View>
 
           <View className="mb-8">
-            <Text className="text-[#6FA1F8] text-[11px] font-bold tracking-[3px] uppercase mb-4">
+            <Text className="text-[11px] font-bold tracking-[3px] uppercase mb-4" style={{ color: theme.accent }}>
               Frequency
             </Text>
             <View className="flex-row gap-3">
@@ -458,19 +469,19 @@ export default function CreateLoopScreen() {
                     key={option.value}
                     onPress={() => setFrequency(option.value)}
                     activeOpacity={0.8}
-                    className={`flex-1 rounded-[24px] px-4 py-5 border ${
-                      isActive
-                        ? "bg-[#253250] border-[#4F8EF7]"
-                        : "bg-[#171718] border-white/5"
-                    }`}
+                    className="flex-1 rounded-[24px] px-4 py-5 border"
+                    style={{
+                      backgroundColor: isActive ? withOpacity(accentColor, 0.14) : theme.input,
+                      borderColor: isActive ? accentColor : theme.border,
+                    }}
                   >
                     <View className="items-center">
                       <MaterialCommunityIcons
                         name={option.icon}
                         size={22}
-                        color={isActive ? "#CFE0FF" : "#ffffff90"}
+                        color={isActive ? accentColor : theme.textMuted}
                       />
-                      <Text className={`mt-3 text-sm font-bold ${isActive ? "text-white" : "text-white/80"}`}>
+                      <Text className="mt-3 text-sm font-bold" style={{ color: isActive ? theme.text : theme.textSoft }}>
                         {option.label}
                       </Text>
                     </View>
@@ -482,7 +493,7 @@ export default function CreateLoopScreen() {
 
           {frequency === "custom" && (
             <View className="mb-8">
-              <Text className="text-[#6FA1F8] text-[11px] font-bold tracking-[3px] uppercase mb-4">
+              <Text className="text-[11px] font-bold tracking-[3px] uppercase mb-4" style={{ color: theme.accent }}>
                 Active Days
               </Text>
               <View className="flex-row flex-wrap gap-3">
@@ -494,13 +505,13 @@ export default function CreateLoopScreen() {
                       key={day}
                       onPress={() => toggleCustomDay(day)}
                       activeOpacity={0.8}
-                      className={`rounded-full px-4 py-3 border ${
-                        selected
-                          ? "bg-[#223251] border-[#4F8EF7]"
-                          : "bg-[#171718] border-white/5"
-                      }`}
+                      className="rounded-full px-4 py-3 border"
+                      style={{
+                        backgroundColor: selected ? withOpacity(accentColor, 0.14) : theme.input,
+                        borderColor: selected ? accentColor : theme.border,
+                      }}
                     >
-                      <Text className={`font-semibold ${selected ? "text-white" : "text-white/65"}`}>
+                      <Text className="font-semibold" style={{ color: selected ? theme.text : theme.textMuted }}>
                         {day}
                       </Text>
                     </TouchableOpacity>
@@ -511,7 +522,7 @@ export default function CreateLoopScreen() {
           )}
 
           <View className="mb-6">
-            <Text className="text-[#6FA1F8] text-[11px] font-bold tracking-[3px] uppercase mb-4">
+            <Text className="text-[11px] font-bold tracking-[3px] uppercase mb-4" style={{ color: theme.accent }}>
               Target Type
             </Text>
             <View className="gap-3">
@@ -523,28 +534,35 @@ export default function CreateLoopScreen() {
                     key={option.value}
                     onPress={() => setTargetType(option.value)}
                     activeOpacity={0.8}
-                    className={`rounded-[24px] px-5 py-5 border ${
-                      isActive
-                        ? "bg-[#1E2433] border-[#4F8EF7]"
-                        : "bg-[#171718] border-white/5"
-                    }`}
+                    className="rounded-[24px] px-5 py-5 border"
+                    style={{
+                      backgroundColor: isActive ? withOpacity(accentColor, 0.14) : theme.input,
+                      borderColor: isActive ? accentColor : theme.border,
+                    }}
                   >
                     <View className="flex-row items-center">
-                      <View className="w-9 h-9 rounded-full bg-white/10 items-center justify-center mr-4">
+                      <View
+                        className="w-9 h-9 rounded-full items-center justify-center mr-4"
+                        style={{ backgroundColor: withOpacity(theme.text, isDark ? 0.1 : 0.06) }}
+                      >
                         <MaterialCommunityIcons
                           name={option.icon}
                           size={20}
-                          color={isActive ? accentColor : "#D6D6D6"}
+                          color={isActive ? accentColor : theme.textMuted}
                         />
                       </View>
                       <View className="flex-1">
-                        <Text className="text-white text-base font-bold">{option.label}</Text>
-                        <Text className="text-white/45 text-sm mt-0.5">{option.description}</Text>
+                        <Text className="text-base font-bold" style={{ color: theme.text }}>
+                          {option.label}
+                        </Text>
+                        <Text className="text-sm mt-0.5" style={{ color: theme.textMuted }}>
+                          {option.description}
+                        </Text>
                       </View>
                       <Feather
                         name={isActive ? "check" : "chevron-right"}
                         size={18}
-                        color={isActive ? accentColor : "#ffffff60"}
+                        color={isActive ? accentColor : theme.textMuted}
                       />
                     </View>
                   </TouchableOpacity>
@@ -555,33 +573,35 @@ export default function CreateLoopScreen() {
 
           {targetType !== "boolean" && (
             <View className="mb-6">
-              <Text className="text-[#6FA1F8] text-[11px] font-bold tracking-[3px] uppercase mb-4">
+              <Text className="text-[11px] font-bold tracking-[3px] uppercase mb-4" style={{ color: theme.accent }}>
                 Target Details
               </Text>
               <View className="flex-row gap-3">
-                <View className="flex-1 bg-[#171718] rounded-[24px] px-5 py-4 border border-white/5">
-                  <Text className="text-white/45 text-xs font-bold tracking-[2px] uppercase mb-2">
+                <View className="flex-1 rounded-[24px] px-5 py-4 border" style={{ backgroundColor: theme.input, borderColor: theme.border }}>
+                  <Text className="text-xs font-bold tracking-[2px] uppercase mb-2" style={{ color: theme.textMuted }}>
                     Value
                   </Text>
                   <TextInput
                     value={targetValue}
                     onChangeText={setTargetValue}
                     placeholder={targetType === "duration" ? "45" : "10"}
-                    placeholderTextColor="#FFFFFF40"
+                    placeholderTextColor={theme.textMuted}
                     keyboardType="numeric"
-                    className="text-white text-lg font-bold"
+                    className="text-lg font-bold"
+                    style={{ color: theme.text }}
                   />
                 </View>
-                <View className="w-[42%] bg-[#171718] rounded-[24px] px-5 py-4 border border-white/5">
-                  <Text className="text-white/45 text-xs font-bold tracking-[2px] uppercase mb-2">
+                <View className="w-[42%] rounded-[24px] px-5 py-4 border" style={{ backgroundColor: theme.input, borderColor: theme.border }}>
+                  <Text className="text-xs font-bold tracking-[2px] uppercase mb-2" style={{ color: theme.textMuted }}>
                     Unit
                   </Text>
                   <TextInput
                     value={targetUnit}
                     onChangeText={setTargetUnit}
                     placeholder={getDefaultUnit(targetType) || "unit"}
-                    placeholderTextColor="#FFFFFF40"
-                    className="text-white text-lg font-bold"
+                    placeholderTextColor={theme.textMuted}
+                    className="text-lg font-bold"
+                    style={{ color: theme.text }}
                     autoCapitalize="none"
                   />
                 </View>
@@ -590,7 +610,7 @@ export default function CreateLoopScreen() {
           )}
 
           {!!error && (
-            <Text className="text-red-300 text-sm font-medium mb-4 px-1">
+            <Text className="text-sm font-medium mb-4 px-1" style={{ color: theme.danger }}>
               {error}
             </Text>
           )}
@@ -604,7 +624,7 @@ export default function CreateLoopScreen() {
             className="rounded-full overflow-hidden"
           >
             <LinearGradient
-              colors={["#8FB3FF", "#6E9AF7", "#7FB1FF"]}
+              colors={theme.actionGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{
@@ -615,14 +635,17 @@ export default function CreateLoopScreen() {
               }}
             >
               {isSubmitting ? (
-                <ActivityIndicator color="#0A1930" />
+                <ActivityIndicator color={theme.accentContrast} />
               ) : (
                 <View className="flex-row items-center">
-                  <Text className="text-[#13284A] text-xl font-bold tracking-tight mr-3">
+                  <Text className="text-xl font-bold tracking-tight mr-3" style={{ color: theme.accentContrast }}>
                     Create Loop
                   </Text>
-                  <View className="w-7 h-7 rounded-full bg-[#21457E] items-center justify-center">
-                    <Ionicons name="add" size={18} color="#DCE8FF" />
+                  <View
+                    className="w-7 h-7 rounded-full items-center justify-center"
+                    style={{ backgroundColor: withOpacity(theme.accentContrast, isDark ? 0.35 : 0.2) }}
+                  >
+                    <Ionicons name="add" size={18} color={isDark ? "#DCE8FF" : theme.accentContrast} />
                   </View>
                 </View>
               )}

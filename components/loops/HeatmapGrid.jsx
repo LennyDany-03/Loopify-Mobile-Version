@@ -1,4 +1,5 @@
 import { View, Text, ScrollView } from "react-native";
+import useAppTheme from "../../lib/hooks/useAppTheme";
 
 function getCellLevel(entry, targetValue, targetType) {
   const count = entry?.count ?? entry?.level ?? 0;
@@ -17,7 +18,6 @@ function getCellLevel(entry, targetValue, targetType) {
     return ratio > 0 ? 0.2 : 0;
   }
 
-  // Fallback logic for legacy data or missing targets
   if (count >= 4) return 1;
   if (count >= 3) return 0.8;
   if (count >= 2) return 0.6;
@@ -25,14 +25,15 @@ function getCellLevel(entry, targetValue, targetType) {
   return 0;
 }
 
-export default function HeatmapGrid({ 
-  data = [], 
-  color = "#4F8EF7", 
-  targetValue, 
+export default function HeatmapGrid({
+  data = [],
+  color = "#4F8EF7",
+  targetValue,
   targetType,
   title = "Annual Velocity",
-  subtitle = "Activity density across this year"
+  subtitle = "Activity density across this year",
 }) {
+  const { theme, isDark } = useAppTheme();
   const cells = data.length
     ? data
     : Array.from({ length: 365 }, (_, index) => ({
@@ -46,18 +47,21 @@ export default function HeatmapGrid({
   }
 
   return (
-    <View className="bg-[#0B0D14] rounded-[24px] p-5 border border-white/5 mb-6">
+    <View
+      className="rounded-[24px] p-5 border mb-6"
+      style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+    >
       <View className="flex-row justify-between items-end mb-4">
         <View>
-          <Text className="text-white text-lg font-bold mb-1 leading-tight tracking-tight">
+          <Text className="text-lg font-bold mb-1 leading-tight tracking-tight" style={{ color: theme.text }}>
             {title}
           </Text>
-          <Text className="text-white/50 text-[11px] font-semibold tracking-wide">
+          <Text className="text-[11px] font-semibold tracking-wide" style={{ color: theme.textMuted }}>
             {subtitle}
           </Text>
         </View>
         <View className="flex-row items-center gap-[3px] pb-1">
-          <Text className="text-white/40 text-[8px] font-bold tracking-widest uppercase mr-1">
+          <Text className="text-[8px] font-bold tracking-widest uppercase mr-1" style={{ color: theme.textMuted }}>
             Less
           </Text>
           {[0.1, 0.4, 0.7, 1].map((opacity, index) => (
@@ -65,12 +69,12 @@ export default function HeatmapGrid({
               key={index}
               className="w-2.5 h-2.5 rounded-sm"
               style={{
-                backgroundColor: index === 0 ? "#1A1C24" : color,
+                backgroundColor: index === 0 ? (isDark ? "#1A1C24" : theme.surfaceSoft) : color,
                 opacity: index === 0 ? 1 : opacity,
               }}
             />
           ))}
-          <Text className="text-white/40 text-[8px] font-bold tracking-widest uppercase ml-1">
+          <Text className="text-[8px] font-bold tracking-widest uppercase ml-1" style={{ color: theme.textMuted }}>
             More
           </Text>
         </View>
@@ -88,7 +92,7 @@ export default function HeatmapGrid({
                     key={entry.date}
                     className="w-3 h-3 rounded-[2px]"
                     style={{
-                      backgroundColor: level === 0 ? "#1A1C24" : color,
+                      backgroundColor: level === 0 ? (isDark ? "#1A1C24" : theme.surfaceSoft) : color,
                       opacity: level || 1,
                     }}
                   />

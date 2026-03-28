@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 import re
+from postgrest.exceptions import APIError
 from app.services.supabase_client import supabase
 from app.middleware.auth_guard import get_current_user
 
@@ -55,13 +56,12 @@ def get_auth_email(user_id: str) -> Optional[str]:
     return getattr(auth_user, "email", None)
 
 
-# ── Routes ─────────────────────────────────────────────────────────────────────
+def is_missing_profile_column_error(exc: Exception, column_name: str) -> bool:
+    message = f"{getattr(exc, 'message', '')} {exc}"
+    return f"Could not find the '{column_name}' column of 'profiles'" in message
 
-@router.get("/me")
-async def get_my_profile(user_id: str = Depends(get_current_user)):
-    """
-    Get the authenticated user's profile.
-    """
+
+def fetch_profile_row(user_id: str) -> dict:
     res = (
         supabase.table("profiles")
         .select("*")
@@ -77,6 +77,18 @@ async def get_my_profile(user_id: str = Depends(get_current_user)):
         )
 
     profile = dict(res.data)
+    profile.setdefault("theme", "dark")
+    return profile
+
+
+# ── Routes ─────────────────────────────────────────────────────────────────────
+
+@router.get("/me")
+async def get_my_profile(user_id: str = Depends(get_current_user)):
+    """
+    Get the authenticated user's profile.
+    """
+    profile = fetch_profile_row(user_id)
     updates = {}
 
     auth_email = profile.get("email") or get_auth_email(user_id)
@@ -135,14 +147,48 @@ async def update_my_profile(
             )
         updates["full_name"] = normalized_full_name
 
-    res = (
-        supabase.table("profiles")
-        .update(updates)
-        .eq("id", user_id)
-        .execute()
-    )
+    try:
+        res = (
+            supabase.table("profiles")
+            .update(updates)
+            .eq("id", user_id)
+            .execute()
+        )
+    except APIError as exc:
+        if "theme" in updates and is_missing_profile_column_error(exc, "theme"):
+            fallback_updates = {key: value for key, value in updates.items() if key != "theme"}
 
-    if not res.data:
+            if fallback_updates:
+                try:
+                    res = (
+                        supabase.table("profiles")
+                        .update(fallback_updates)
+                        .eq("id", user_id)
+                        .execute()
+                    )
+                except APIError as retry_exc:
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"Failed to update profile: {getattr(retry_exc, 'message', str(retry_exc))}"
+                    ) from retry_exc
+            else:
+                res = None
+
+            profile = fetch_profile_row(user_id)
+            profile["theme"] = updates["theme"]
+
+            return {
+                "message": "Profile updated",
+                "profile": profile,
+                "sync_warning": "Theme column is missing in the profiles table, so the theme was only saved locally.",
+            }
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update profile: {getattr(exc, 'message', str(exc))}"
+        ) from exc
+
+    if res is None or not res.data:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update profile."

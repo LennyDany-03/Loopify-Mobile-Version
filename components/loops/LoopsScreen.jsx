@@ -1,7 +1,17 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Image, ScrollView, Text, TextInput, TouchableOpacity, View, RefreshControl } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  RefreshControl,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import WeeklySummaryCard from "./WeeklySummaryCard";
 import ActiveLoopCard from "./ActiveLoopCard";
@@ -13,8 +23,10 @@ import {
   buildWeeklyBars,
   normalizeLoop,
 } from "../../lib/utils/loopMetrics";
+import useAppTheme from "../../lib/hooks/useAppTheme";
 
 export default function LoopsScreen() {
+  const { theme, isDark } = useAppTheme();
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [weeklyBars, setWeeklyBars] = useState([]);
@@ -85,9 +97,7 @@ export default function LoopsScreen() {
         setWeeklyBars(bars);
 
         if (totalRecentCheckins > 0) {
-          setWeeklyHeadline(
-            `${totalRecentCheckins} check-ins across the last ${bars.length} weeks.`
-          );
+          setWeeklyHeadline(`${totalRecentCheckins} check-ins across the last ${bars.length} weeks.`);
           setWeeklySubhead(
             activeWeeks > 0
               ? `${activeWeeks} active week${activeWeeks === 1 ? "" : "s"}`
@@ -117,9 +127,7 @@ export default function LoopsScreen() {
     };
   }, [loops]);
 
-  const normalizedLoops = loops.map((loop) =>
-    normalizeLoop(loop, { todayCheckins })
-  );
+  const normalizedLoops = loops.map((loop) => normalizeLoop(loop, { todayCheckins }));
   const categories = ["All", ...new Set(normalizedLoops.map((loop) => loop.category || "General"))];
   const filteredLoops = normalizedLoops.filter((loop) => {
     const matchesCategory =
@@ -148,7 +156,7 @@ export default function LoopsScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-[#050508]">
+    <SafeAreaView className="flex-1" style={{ backgroundColor: theme.background }}>
       <View className="flex-row items-center justify-between px-6 pt-4 pb-4">
         <View className="flex-row items-center gap-3">
           <Image
@@ -156,7 +164,9 @@ export default function LoopsScreen() {
             className="w-8 h-8"
             resizeMode="contain"
           />
-          <Text className="text-[22px] font-bold text-[#4F8EF7] tracking-tight">My Loops</Text>
+          <Text className="text-[22px] font-bold tracking-tight" style={{ color: theme.logo }}>
+            My Loops
+          </Text>
         </View>
       </View>
 
@@ -164,21 +174,25 @@ export default function LoopsScreen() {
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 60 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={onRefresh} 
-            tintColor="#4F8EF7" 
-            colors={["#4F8EF7"]}
-            progressBackgroundColor="#1A253A"
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.accent}
+            colors={[theme.accent]}
+            progressBackgroundColor={theme.refreshBackground}
           />
         }
       >
-        <View className="flex-row items-center bg-[#11131A] rounded-2xl px-4 py-3.5 mb-6 border border-white/5">
-          <Feather name="search" size={18} color="#ffffff40" />
+        <View
+          className="flex-row items-center rounded-2xl px-4 py-3.5 mb-6 border"
+          style={{ backgroundColor: theme.input, borderColor: theme.border }}
+        >
+          <Feather name="search" size={18} color={theme.textMuted} />
           <TextInput
-            className="flex-1 text-white ml-3 font-semibold text-sm"
+            className="flex-1 ml-3 font-semibold text-sm"
+            style={{ color: theme.text }}
             placeholder="Search your loops..."
-            placeholderTextColor="#ffffff40"
+            placeholderTextColor={theme.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -190,38 +204,45 @@ export default function LoopsScreen() {
           className="mb-8"
           contentContainerStyle={{ gap: 10 }}
         >
-          {categories.map((cat) => (
-            <TouchableOpacity
-              key={cat}
-              onPress={() => setActiveCategory(cat)}
-              className={`px-5 py-2.5 rounded-[20px] flex-row items-center ${
-                activeCategory === cat
-                  ? "bg-[#151D30] border border-[#4F8EF7]/20"
-                  : "bg-[#11131A] border border-transparent"
-              }`}
-            >
-              {activeCategory === cat && <View className="w-2 h-2 rounded-full bg-[#4F8EF7] mr-2" />}
-              <Text
-                className={`text-sm font-semibold tracking-wide ${
-                  activeCategory === cat ? "text-white" : "text-white/50"
-                }`}
+          {categories.map((cat) => {
+            const isActive = activeCategory === cat;
+
+            return (
+              <TouchableOpacity
+                key={cat}
+                onPress={() => setActiveCategory(cat)}
+                className="px-5 py-2.5 rounded-[20px] flex-row items-center border"
+                style={{
+                  backgroundColor: isActive
+                    ? isDark ? "#151D30" : "#EAF2FF"
+                    : theme.input,
+                  borderColor: isActive ? `${theme.accent}33` : "transparent",
+                }}
               >
-                {cat}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                {isActive && (
+                  <View className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: theme.accent }} />
+                )}
+                <Text
+                  className="text-sm font-semibold tracking-wide"
+                  style={{ color: isActive ? theme.text : theme.textMuted }}
+                >
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
 
         <View className="flex-row justify-between items-end mb-4 px-1">
           <View>
-            <Text className="text-[#4F8EF7] text-[10px] font-bold tracking-widest uppercase">
+            <Text className="text-[10px] font-bold tracking-widest uppercase" style={{ color: theme.accent }}>
               Active Momentum
             </Text>
-            <Text className="text-white/35 text-[10px] font-semibold tracking-wider mt-1">
+            <Text className="text-[10px] font-semibold tracking-wider mt-1" style={{ color: theme.textMuted }}>
               Long press any loop to delete it
             </Text>
           </View>
-          <Text className="text-white/50 text-[10px] font-semibold tracking-wider">
+          <Text className="text-[10px] font-semibold tracking-wider" style={{ color: theme.textMuted }}>
             {filteredLoops.length} Active
           </Text>
         </View>
@@ -229,7 +250,7 @@ export default function LoopsScreen() {
         <View className="mb-4">
           {isLoading && !normalizedLoops.length ? (
             <View className="py-12 items-center">
-              <ActivityIndicator size="large" color="#4F8EF7" />
+              <ActivityIndicator size="large" color={theme.accent} />
             </View>
           ) : filteredLoops.length ? (
             filteredLoops.map((loop) => (
@@ -240,8 +261,13 @@ export default function LoopsScreen() {
               />
             ))
           ) : (
-            <View className="bg-[#0D1017] rounded-[28px] border border-white/5 p-8 items-center">
-              <Text className="text-white text-base font-semibold">No loops match this filter.</Text>
+            <View
+              className="rounded-[28px] border p-8 items-center"
+              style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+            >
+              <Text className="text-base font-semibold" style={{ color: theme.text }}>
+                No loops match this filter.
+              </Text>
             </View>
           )}
         </View>
@@ -257,11 +283,13 @@ export default function LoopsScreen() {
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => router.push("/loops/new")}
-          className="w-16 h-16 bg-[#72A6FF] shadow-2xl shadow-[#4F8EF7]/50 rounded-full items-center justify-center"
+          className="w-16 h-16 rounded-full items-center justify-center"
+          style={{ backgroundColor: theme.plusButton }}
         >
-          <Feather name="plus" size={32} color="#0B0D14" />
+          <Feather name="plus" size={32} color={theme.plusButtonText} />
         </TouchableOpacity>
       </View>
+
       <DeleteLoopModal
         isVisible={isDeleteModalVisible}
         loopName={loopToDelete?.name}

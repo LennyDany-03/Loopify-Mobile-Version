@@ -1,6 +1,15 @@
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Image, ScrollView, Text, TouchableOpacity, View, RefreshControl } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+  RefreshControl,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import GreetingHeader from "./GreetingHeader";
 import MiniStats from "./MiniStats";
@@ -10,8 +19,10 @@ import DeleteLoopModal from "../loops/DeleteLoopModal";
 import useAuthStore from "../../lib/store/useAuthStore";
 import useLoopStore from "../../lib/store/useLoopStore";
 import { isLoopCompletedToday, normalizeLoop } from "../../lib/utils/loopMetrics";
+import useAppTheme from "../../lib/hooks/useAppTheme";
 
 export default function DashboardScreen() {
+  const { theme } = useAppTheme();
   const user = useAuthStore((state) => state.user);
   const loops = useLoopStore((state) => state.loops);
   const summary = useLoopStore((state) => state.summary);
@@ -45,9 +56,7 @@ export default function DashboardScreen() {
     setRefreshing(false);
   };
 
-  const displayLoops = loops.map((loop) =>
-    normalizeLoop(loop, { todayCheckins })
-  );
+  const displayLoops = loops.map((loop) => normalizeLoop(loop, { todayCheckins }));
   const completedToday = displayLoops.filter((loop) =>
     isLoopCompletedToday(loop, todayCheckins)
   ).length;
@@ -83,7 +92,7 @@ export default function DashboardScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-[#050508]">
+    <SafeAreaView className="flex-1" style={{ backgroundColor: theme.background }}>
       <View className="flex-row items-center justify-between px-6 pt-4 pb-2">
         <View className="flex-row items-center gap-3">
           <Image
@@ -91,7 +100,9 @@ export default function DashboardScreen() {
             className="w-8 h-8"
             resizeMode="contain"
           />
-          <Text className="text-[22px] font-bold text-[#4F8EF7] italic tracking-tight">Loopify</Text>
+          <Text className="text-[22px] font-bold italic tracking-tight" style={{ color: theme.logo }}>
+            Loopify
+          </Text>
         </View>
       </View>
 
@@ -99,12 +110,12 @@ export default function DashboardScreen() {
         contentContainerStyle={{ padding: 24, paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={onRefresh} 
-            tintColor="#4F8EF7" 
-            colors={["#4F8EF7"]}
-            progressBackgroundColor="#1A253A"
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.accent}
+            colors={[theme.accent]}
+            progressBackgroundColor={theme.refreshBackground}
           />
         }
       >
@@ -125,15 +136,17 @@ export default function DashboardScreen() {
         />
 
         <View className="flex-row justify-between items-center mb-6 mt-2">
-          <Text className="text-xl text-white font-bold tracking-tight">Today&apos;s Loop</Text>
-          <Text className="text-[#4F8EF7] text-[11px] font-bold tracking-wide">
+          <Text className="text-xl font-bold tracking-tight" style={{ color: theme.text }}>
+            Today&apos;s Loop
+          </Text>
+          <Text className="text-[11px] font-bold tracking-wide" style={{ color: theme.accent }}>
             {completedToday} of {displayLoops.length} Completed
           </Text>
         </View>
 
         {isLoading && !displayLoops.length ? (
           <View className="py-12 items-center">
-            <ActivityIndicator size="large" color="#4F8EF7" />
+            <ActivityIndicator size="large" color={theme.accent} />
           </View>
         ) : (
           <TodayLoopList
@@ -145,7 +158,9 @@ export default function DashboardScreen() {
         )}
 
         {!!error && !displayLoops.length && (
-          <Text className="text-red-300 text-sm mt-4 text-center">{error}</Text>
+          <Text className="text-sm mt-4 text-center" style={{ color: theme.danger }}>
+            {error}
+          </Text>
         )}
       </ScrollView>
 
@@ -153,11 +168,18 @@ export default function DashboardScreen() {
         <TouchableOpacity
           onPress={() => router.push("/loops/new")}
           activeOpacity={0.85}
-          className="w-16 h-16 bg-[#72A6FF] shadow-xl shadow-[#4F8EF7]/50 rounded-full items-center justify-center"
+          className="w-16 h-16 rounded-full items-center justify-center"
+          style={{
+            backgroundColor: theme.plusButton,
+            shadowColor: theme.plusButton,
+          }}
         >
-          <Text className="text-[#1A243A] text-3xl font-light mb-1">+</Text>
+          <Text className="text-3xl font-light mb-1" style={{ color: theme.plusButtonText }}>
+            +
+          </Text>
         </TouchableOpacity>
       </View>
+
       <DeleteLoopModal
         isVisible={isDeleteModalVisible}
         loopName={loopToDelete?.name}

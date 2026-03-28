@@ -2,13 +2,15 @@ import { View, Text } from "react-native";
 import LoopItem from "../ui/LoopItem";
 import { router } from "expo-router";
 import { isLoopCompletedToday } from "../../lib/utils/loopMetrics";
+import useAppTheme from "../../lib/hooks/useAppTheme";
 
 export default function TodayLoopList({
   loops = [],
   todayCheckins = {},
   onLongPressLoop,
 }) {
-  // Unchecked first, checked sink to bottom
+  const { theme } = useAppTheme();
+
   const sorted = [...loops].sort((a, b) => {
     const ac = isLoopCompletedToday(a, todayCheckins);
     const bc = isLoopCompletedToday(b, todayCheckins);
@@ -18,12 +20,18 @@ export default function TodayLoopList({
 
   return (
     <View>
-      {/* Loop rows */}
       {sorted.length === 0 ? (
-        <View className="bg-[#0f0f1a] border border-[#ffffff08] rounded-3xl p-8 items-center">
-          <Text className="text-4xl mb-3">🔁</Text>
-          <Text className="text-white font-semibold">No loops yet</Text>
-          <Text className="text-white/30 text-sm mt-1 text-center">
+        <View
+          className="border rounded-3xl p-8 items-center"
+          style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+        >
+          <Text className="text-4xl mb-3" style={{ color: theme.accent }}>
+            O
+          </Text>
+          <Text className="font-semibold" style={{ color: theme.text }}>
+            No loops yet
+          </Text>
+          <Text className="text-sm mt-1 text-center" style={{ color: theme.textSubtle }}>
             Create your first loop to start tracking
           </Text>
         </View>

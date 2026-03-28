@@ -1,4 +1,5 @@
 import { View, Text } from "react-native";
+import useAppTheme from "../../lib/hooks/useAppTheme";
 
 const defaultBars = Array.from({ length: 7 }, (_, index) => ({
   key: `empty-${index}`,
@@ -13,15 +14,19 @@ export default function WeeklySummaryCard({
   headline = "Weekly momentum will show up after your first few check-ins.",
   subhead = "Recent weeks",
 }) {
+  const { theme, isDark } = useAppTheme();
   const chartBars = bars.length ? bars : defaultBars;
 
   return (
-    <View className="bg-[#0D1017] rounded-[32px] p-6 border border-white/5 mb-[100px] mt-2 relative overflow-hidden">
-      <Text className="text-[#4F8EF7] text-[9px] font-bold tracking-widest uppercase mb-4">
+    <View
+      className="rounded-[32px] p-6 border mb-[100px] mt-2 relative overflow-hidden"
+      style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+    >
+      <Text className="text-[9px] font-bold tracking-widest uppercase mb-4" style={{ color: theme.accent }}>
         {subhead}
       </Text>
 
-      <Text className="text-white text-[22px] font-bold tracking-tight leading-7">
+      <Text className="text-[22px] font-bold tracking-tight leading-7" style={{ color: theme.text }}>
         {headline}
       </Text>
 
@@ -29,8 +34,16 @@ export default function WeeklySummaryCard({
         {chartBars.map((bar) => (
           <View key={bar.key} className="items-center justify-end h-full">
             <View
-              style={{ height: `${bar.height}%` }}
-              className={`w-[26px] rounded-full ${bar.active ? "bg-[#72A6FF]" : "bg-[#1A1C24]"}`}
+              style={{
+                height: `${bar.height}%`,
+                width: 26,
+                borderRadius: 999,
+                backgroundColor: bar.active
+                  ? theme.accentStrong
+                  : isDark
+                    ? "#1A1C24"
+                    : theme.surfaceSoft,
+              }}
             />
           </View>
         ))}
