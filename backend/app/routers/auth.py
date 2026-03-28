@@ -4,7 +4,7 @@ from postgrest.exceptions import APIError
 from supabase_auth.errors import AuthApiError, AuthError, AuthWeakPasswordError
 import re
 
-from app.services.supabase_client import supabase
+from app.services.supabase_client import create_auth_client, supabase
 from app.utils.jwt import create_access_token, create_refresh_token, decode_token
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -120,8 +120,10 @@ async def register(body: RegisterRequest):
             detail="Password must be at least 6 characters.",
         )
 
+    auth_client = create_auth_client()
+
     try:
-        res = supabase.auth.sign_up(
+        res = auth_client.auth.sign_up(
             {
                 "email": body.email,
                 "password": body.password,
@@ -165,8 +167,10 @@ async def login(body: LoginRequest):
     Login with email + password via Supabase Auth.
     Returns JWT access + refresh tokens.
     """
+    auth_client = create_auth_client()
+
     try:
-        res = supabase.auth.sign_in_with_password(
+        res = auth_client.auth.sign_in_with_password(
             {
                 "email": body.email,
                 "password": body.password,
@@ -191,8 +195,10 @@ async def google_sign_in(body: GoogleSignInRequest):
     """
     Login or register with a Google ID token issued by the native app flow.
     """
+    auth_client = create_auth_client()
+
     try:
-        res = supabase.auth.sign_in_with_id_token(
+        res = auth_client.auth.sign_in_with_id_token(
             {
                 "provider": "google",
                 "token": body.id_token,
@@ -255,8 +261,7 @@ async def refresh_token(body: RefreshRequest):
 @router.post("/logout")
 async def logout():
     """
-    Sign out the current session via Supabase Auth.
-    Client should also discard stored tokens.
+    Logout is client-side for the custom JWTs issued by this API.
+    Clients should discard stored tokens locally.
     """
-    supabase.auth.sign_out()
     return {"message": "Logged out successfully"}

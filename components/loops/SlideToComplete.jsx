@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Dimensions, PanResponder, StyleSheet, Text, View } from "react-native";
+import { Animated, Dimensions, PanResponder, Platform, StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
 function withOpacity(color, opacity = "22") {
@@ -13,6 +13,12 @@ function withOpacity(color, opacity = "22") {
 
   return color;
 }
+
+const SYSTEM_FONT_FAMILY = Platform.select({
+  ios: "System",
+  android: "sans-serif",
+  default: "system-ui",
+});
 
 export default function SlideToComplete({
   onComplete,
@@ -194,12 +200,14 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   masteredText: {
+    fontFamily: SYSTEM_FONT_FAMILY,
     fontWeight: "700",
     fontSize: 15,
     letterSpacing: 0.3,
   },
   completedSubtext: {
-    color: "rgba(255, 255, 255, 0.45)",
+    color: "rgba(226, 236, 255, 0.74)",
+    fontFamily: SYSTEM_FONT_FAMILY,
     fontSize: 11,
     fontWeight: "600",
     marginTop: 2,
@@ -230,15 +238,17 @@ const styles = StyleSheet.create({
   },
   trackText: {
     textAlign: "center",
-    color: "rgba(255, 255, 255, 0.76)",
-    fontSize: 10,
+    color: "rgba(245, 249, 255, 0.94)",
+    fontFamily: SYSTEM_FONT_FAMILY,
+    fontSize: 11,
     fontWeight: "700",
-    letterSpacing: 2,
+    letterSpacing: 1.3,
     textTransform: "uppercase",
   },
   progressText: {
     textAlign: "center",
-    color: "rgba(255, 255, 255, 0.48)",
+    color: "rgba(214, 226, 245, 0.84)",
+    fontFamily: SYSTEM_FONT_FAMILY,
     fontSize: 11,
     fontWeight: "600",
     marginTop: 4,
