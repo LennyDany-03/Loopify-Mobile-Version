@@ -269,21 +269,24 @@ export default function SettingsScreen() {
         <SectionTitle title="Notifications" />
 
         <View className="bg-[#0B0D14] rounded-[24px] overflow-hidden border border-white/5">
-          <View className="flex-row items-center justify-between p-5 border-b border-white/5">
-            <View>
+          <View className="flex-row items-start p-5">
+            <View className="flex-1 mr-4">
               <Text className="text-white font-bold text-[15px]">Daily Reminder</Text>
-              <Text className="text-white/40 text-[11px] mt-1 font-medium">{reminderDescription}</Text>
+              <Text className="text-white/40 text-[11px] mt-1 font-medium leading-[16px]">
+                {reminderDescription}
+              </Text>
             </View>
-            <Switch
-              value={dailyReminder}
-              onValueChange={handleDailyReminderToggle}
-              disabled={!isReminderReady || isReminderUpdating}
-              trackColor={{ false: "#1E222E", true: "#7DA7FF" }}
-              thumbColor={dailyReminder ? "#14366D" : "#8E93A6"}
-              ios_backgroundColor="#1E222E"
-            />
+            <View className="pt-0.5">
+              <Switch
+                value={dailyReminder}
+                onValueChange={handleDailyReminderToggle}
+                disabled={!isReminderReady || isReminderUpdating}
+                trackColor={{ false: "#1E222E", true: "#7DA7FF" }}
+                thumbColor={dailyReminder ? "#14366D" : "#8E93A6"}
+                ios_backgroundColor="#1E222E"
+              />
+            </View>
           </View>
-
         </View>
 
         <SectionTitle title="App Preferences" />
