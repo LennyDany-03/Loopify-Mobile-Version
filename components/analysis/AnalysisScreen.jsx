@@ -256,7 +256,7 @@ export default function AnalysisScreen() {
             className="w-8 h-8"
             resizeMode="contain"
           />
-          <Text className="text-xl font-bold text-[#4F8EF7] italic tracking-tight">Loopify</Text>
+          <Text className="text-[22px] font-bold text-[#4F8EF7] italic tracking-tight">Loopify</Text>
         </View>
       </View>
 

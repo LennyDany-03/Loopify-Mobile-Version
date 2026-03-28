@@ -42,6 +42,14 @@
           }
         }
       ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#4F8EF7",
+          "defaultChannel": "daily-loop-reminders"
+        }
+      ],
       "expo-secure-store"
     ],
     "experiments": {

@@ -6,6 +6,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import useAuthStore from "../../lib/store/useAuthStore";
 import useNavStore from "../../lib/store/useNavStore";
 import useLoopLiveSync from "../../lib/hooks/useLoopLiveSync";
+import useDailyReminderSync from "../../lib/hooks/useDailyReminderSync";
 
 const TAB_META = {
   dashboard: {
@@ -166,6 +167,7 @@ export default function TabLayout() {
   const isReady = useAuthStore((state) => state.isReady);
 
   useLoopLiveSync({ enabled: isReady && isLoggedIn });
+  useDailyReminderSync({ enabled: isReady && isLoggedIn });
 
   if (!isReady) {
     return (

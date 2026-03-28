@@ -51,6 +51,7 @@ export default function DashboardScreen() {
   const completedToday = displayLoops.filter((loop) =>
     isLoopCompletedToday(loop, todayCheckins)
   ).length;
+  const openLoopsToday = Math.max(displayLoops.length - completedToday, 0);
   const todayCompletionRate = displayLoops.length
     ? Math.round((completedToday / displayLoops.length) * 100)
     : 0;
@@ -90,7 +91,7 @@ export default function DashboardScreen() {
             className="w-8 h-8"
             resizeMode="contain"
           />
-          <Text className="text-xl font-bold text-[#4F8EF7] italic tracking-tight">Loopify</Text>
+          <Text className="text-[22px] font-bold text-[#4F8EF7] italic tracking-tight">Loopify</Text>
         </View>
       </View>
 
@@ -119,7 +120,7 @@ export default function DashboardScreen() {
         </View>
 
         <MiniStats
-          totalCheckins={summary?.total_checkins ?? 0}
+          openLoopsToday={openLoopsToday}
           todayCompletionRate={todayCompletionRate}
         />
 

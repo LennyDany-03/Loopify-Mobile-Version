@@ -156,7 +156,7 @@ export default function LoopsScreen() {
             className="w-8 h-8"
             resizeMode="contain"
           />
-          <Text className="text-2xl font-bold text-[#4F8EF7] tracking-tight">My Loops</Text>
+          <Text className="text-[22px] font-bold text-[#4F8EF7] tracking-tight">My Loops</Text>
         </View>
       </View>
 

@@ -1,4 +1,4 @@
-import { View, Text, Switch, Image, ScrollView, TouchableOpacity } from "react-native";
+import { Alert, View, Text, Switch, Image, ScrollView, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -7,7 +7,14 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../../lib/hooks/useAuth";
 import useAuthStore from "../../lib/store/useAuthStore";
 import useLoopStore from "../../lib/store/useLoopStore";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import useReminderStore from "../../lib/store/useReminderStore";
+import {
+  enableDailyLoopReminderAsync,
+  formatReminderTime,
+  getLoopReminderStatus,
+  syncDailyLoopReminderAsync,
+} from "../../lib/notifications/dailyReminder";
 
 function SectionTitle({ title }) {
   return (
@@ -93,16 +100,26 @@ export default function SettingsScreen() {
   const user = useAuthStore((state) => state.user);
   const loops = useLoopStore((state) => state.loops);
   const summary = useLoopStore((state) => state.summary);
+  const todayCheckins = useLoopStore((state) => state.todayCheckins);
   const fetchLoops = useLoopStore((state) => state.fetchLoops);
   const fetchSummary = useLoopStore((state) => state.fetchSummary);
+  const fetchTodayCheckins = useLoopStore((state) => state.fetchTodayCheckins);
+  const initializeReminder = useReminderStore((state) => state.initialize);
+  const dailyReminder = useReminderStore((state) => state.enabled);
+  const reminderTime = useReminderStore((state) => state.reminderTime);
+  const isReminderReady = useReminderStore((state) => state.isReady);
+  const isReminderUpdating = useReminderStore((state) => state.isUpdating);
+  const setReminderEnabled = useReminderStore((state) => state.setEnabled);
 
   const firstName = user?.full_name?.split(" ")[0] || "Lenny";
   const avatarUrl = user?.picture || user?.avatar_url || user?.profile_pic;
   const initial = firstName.charAt(0).toUpperCase();
 
-  const [dailyReminder, setDailyReminder] = useState(true);
-  const [smartPings, setSmartPings] = useState(false);
   const [isHealthRefreshing, setIsHealthRefreshing] = useState(false);
+
+  useEffect(() => {
+    void initializeReminder(user);
+  }, [initializeReminder, user]);
 
   useFocusEffect(
     useCallback(() => {
@@ -110,7 +127,7 @@ export default function SettingsScreen() {
 
       async function refreshAccountHealth() {
         setIsHealthRefreshing(true);
-        await Promise.allSettled([fetchSummary(), fetchLoops()]);
+        await Promise.allSettled([fetchSummary(), fetchLoops(), fetchTodayCheckins()]);
 
         if (isActive) {
           setIsHealthRefreshing(false);
@@ -122,7 +139,7 @@ export default function SettingsScreen() {
       return () => {
         isActive = false;
       };
-    }, [fetchLoops, fetchSummary])
+    }, [fetchLoops, fetchSummary, fetchTodayCheckins])
   );
 
   const accountHealth = useMemo(
@@ -130,6 +147,70 @@ export default function SettingsScreen() {
     [loops.length, summary]
   );
   const accountHealthBadge = `${Math.round(accountHealth.score)}%`;
+  const reminderStatus = useMemo(
+    () => getLoopReminderStatus({ loops, todayCheckins }),
+    [loops, todayCheckins]
+  );
+  const reminderDescription = useMemo(() => {
+    const readableTime = formatReminderTime(reminderTime);
+
+    if (!isReminderReady) {
+      return "Loading your reminder settings...";
+    }
+
+    if (!dailyReminder) {
+      return `Send motivation at ${readableTime} when loops are still unfinished.`;
+    }
+
+    if (!loops.length) {
+      return `Reminder is on for ${readableTime}. Create your first loop to start receiving nudges.`;
+    }
+
+    if (reminderStatus.shouldNotify) {
+      const loopLabel =
+        reminderStatus.remainingLoops === 1 ? "loop is" : "loops are";
+
+      return `${readableTime} reminder is armed because ${reminderStatus.remainingLoops} ${loopLabel} still open today.`;
+    }
+
+    return `Reminder is active for ${readableTime}. We only notify when 0-2 loops are done and some are still left.`;
+  }, [dailyReminder, isReminderReady, loops.length, reminderStatus, reminderTime]);
+
+  const handleDailyReminderToggle = useCallback(
+    (nextValue) => {
+      void (async () => {
+        if (!user?.id) {
+          return;
+        }
+
+        if (!nextValue) {
+          await setReminderEnabled(false);
+          await syncDailyLoopReminderAsync({ enabled: false });
+          return;
+        }
+
+        const result = await enableDailyLoopReminderAsync({
+          reminderTime,
+          loops,
+          todayCheckins,
+        });
+
+        if (!result.success) {
+          await setReminderEnabled(false);
+          Alert.alert(
+            result.reason === "module-unavailable" ? "Rebuild needed" : "Notifications are blocked",
+            result.reason === "module-unavailable"
+              ? "This app build does not include expo-notifications yet. Rebuild the dev client or app, then try turning Daily Reminder on again."
+              : "Allow Loopify notifications on your device to receive daily motivation for unfinished loops."
+          );
+          return;
+        }
+
+        await setReminderEnabled(true);
+      })();
+    },
+    [loops, reminderTime, setReminderEnabled, todayCheckins, user?.id]
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-[#050508]">
@@ -191,11 +272,12 @@ export default function SettingsScreen() {
           <View className="flex-row items-center justify-between p-5 border-b border-white/5">
             <View>
               <Text className="text-white font-bold text-[15px]">Daily Reminder</Text>
-              <Text className="text-white/40 text-[11px] mt-1 font-medium">Stay consistent with your goals</Text>
+              <Text className="text-white/40 text-[11px] mt-1 font-medium">{reminderDescription}</Text>
             </View>
             <Switch
               value={dailyReminder}
-              onValueChange={setDailyReminder}
+              onValueChange={handleDailyReminderToggle}
+              disabled={!isReminderReady || isReminderUpdating}
               trackColor={{ false: "#1E222E", true: "#7DA7FF" }}
               thumbColor={dailyReminder ? "#14366D" : "#8E93A6"}
               ios_backgroundColor="#1E222E"

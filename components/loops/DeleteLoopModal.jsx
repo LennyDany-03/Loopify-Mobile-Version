@@ -28,7 +28,7 @@ export default function DeleteLoopModal({ isVisible, onCancel, onConfirm, loopNa
           
           <Text className="text-white/50 text-[15px] text-center leading-6 mb-8 px-2 font-medium">
             {loopName ? (
-              <Text className="text-white font-bold">"{loopName}"</Text>
+              <Text className="text-white font-bold">{loopName}</Text>
             ) : "This loop"} will be removed from your active loops. This action cannot be reversed.
           </Text>
           
