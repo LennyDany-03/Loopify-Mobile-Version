@@ -1,79 +1,224 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Image, ScrollView, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, AppState, Image, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import CompletionRing from "../../components/analysis/CompletionRing";
 import FocusAreas from "../../components/analysis/FocusAreas";
 import LoopTrendsChart from "../../components/analysis/LoopTrendsChart";
 import RecentLoopDetail from "../../components/analysis/RecentLoopDetail";
 import { analyticsAPI } from "../../lib/api";
+import useNavStore from "../../lib/store/useNavStore";
 import useLoopStore from "../../lib/store/useLoopStore";
 import {
     aggregateWeeklyCounts,
     buildCategoryPercents,
     buildRecentLoopInsights,
+    isLoopCompletedToday,
 } from "../../lib/utils/loopMetrics";
 
+function getReferenceDate(serverDate) {
+  if (!serverDate) {
+    return new Date();
+  }
+
+  const parsedDate = new Date(`${serverDate}T00:00:00`);
+  return Number.isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
+}
+
+function buildCategoryTotals(loops = []) {
+  const totalsByCategory = new Map();
+
+  loops.forEach((loop) => {
+    const category = loop?.category || "General";
+    const totalCheckins = Number(loop?.total_checkins || 0);
+
+    totalsByCategory.set(category, (totalsByCategory.get(category) || 0) + totalCheckins);
+  });
+
+  return Array.from(totalsByCategory.entries())
+    .map(([category, total]) => ({ category, total }))
+    .sort((left, right) => {
+      if (right.total !== left.total) {
+        return right.total - left.total;
+      }
+
+      return left.category.localeCompare(right.category);
+    });
+}
+
 export default function Analysis() {
+  const tabIndex = useNavStore((state) => state.tabIndex);
+  const loops = useLoopStore((state) => state.loops);
   const summary = useLoopStore((state) => state.summary);
+  const todayCheckins = useLoopStore((state) => state.todayCheckins);
   const serverDate = useLoopStore((state) => state.serverDate);
   const fetchLoops = useLoopStore((state) => state.fetchLoops);
   const fetchSummary = useLoopStore((state) => state.fetchSummary);
+  const fetchTodayCheckins = useLoopStore((state) => state.fetchTodayCheckins);
 
-  const [completionRate, setCompletionRate] = useState(0);
-  const [focusData, setFocusData] = useState([]);
-  const [trendData, setTrendData] = useState(aggregateWeeklyCounts([]));
+  const [trendData, setTrendData] = useState(() => aggregateWeeklyCounts([]));
   const [recentLoops, setRecentLoops] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    let isCancelled = false;
+  const hasLoadedRef = useRef(false);
+  const isMountedRef = useRef(true);
+  const requestIdRef = useRef(0);
+  const loopsRef = useRef(loops);
+  const isAnalysisActive = tabIndex === 2;
 
-    async function loadAnalysis() {
-      setIsLoading(true);
-      setError(null);
+  const referenceDate = useMemo(() => getReferenceDate(serverDate), [serverDate]);
+  const analysisKey = useMemo(
+    () =>
+      loops
+        .map((loop) =>
+          [
+            loop.id,
+            loop.category || "General",
+            loop.total_checkins || 0,
+            loop.current_streak || 0,
+            loop.last_checkin_date || "",
+          ].join(":")
+        )
+        .join("|"),
+    [loops]
+  );
+
+  const completionRate = useMemo(() => {
+    if (!loops.length) {
+      return 0;
+    }
+
+    const completedToday = loops.reduce(
+      (count, loop) => count + (isLoopCompletedToday(loop, todayCheckins) ? 1 : 0),
+      0
+    );
+
+    return Math.round((completedToday / loops.length) * 100);
+  }, [loops, todayCheckins]);
+
+  const focusData = useMemo(
+    () => buildCategoryPercents(buildCategoryTotals(loops)),
+    [loops]
+  );
+
+  useEffect(() => {
+    loopsRef.current = loops;
+  }, [loops]);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const loadAnalysis = useCallback(
+    async ({ silent = false, syncCollections = false, sourceLoops } = {}) => {
+      const requestId = requestIdRef.current + 1;
+      requestIdRef.current = requestId;
+
+      if (silent) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+        setError(null);
+      }
 
       try {
-        await Promise.all([fetchLoops(), fetchSummary()]);
-        const liveLoops = useLoopStore.getState().loops;
+        let activeLoops = Array.isArray(sourceLoops) ? sourceLoops : useLoopStore.getState().loops;
 
-        const [completionRes, categoryRes, weeklyData] = await Promise.all([
-          analyticsAPI.completionRate(),
-          analyticsAPI.categoryBreakdown(),
-          Promise.all(
-            liveLoops.map(async (loop) => {
-              const res = await analyticsAPI.weekly(loop.id);
-              return { loop, weeks: res.data?.weeks || [] };
-            })
-          ),
-        ]);
+        if (syncCollections || (!hasLoadedRef.current && !activeLoops.length)) {
+          const [nextLoops] = await Promise.all([
+            fetchLoops(),
+            fetchSummary(),
+            fetchTodayCheckins(),
+          ]);
+          const storeLoops = useLoopStore.getState().loops;
 
-        if (isCancelled) {
+          activeLoops =
+            Array.isArray(nextLoops) && (nextLoops.length || !storeLoops.length)
+              ? nextLoops
+              : storeLoops;
+        }
+
+        if (!activeLoops.length) {
+          if (!isMountedRef.current || requestId !== requestIdRef.current) {
+            return;
+          }
+
+          setTrendData(aggregateWeeklyCounts([], 12, referenceDate));
+          setRecentLoops([]);
+          setError(null);
+          hasLoadedRef.current = true;
           return;
         }
 
-        setCompletionRate(Math.round(completionRes.data?.completion_rate_percent || 0));
-        setFocusData(buildCategoryPercents(categoryRes.data?.categories || []));
-        setTrendData(aggregateWeeklyCounts(weeklyData));
-        setRecentLoops(buildRecentLoopInsights(weeklyData));
+        const weeklyData = await Promise.all(
+          activeLoops.map(async (loop) => {
+            const res = await analyticsAPI.weekly(loop.id);
+            return { loop, weeks: res.data?.weeks || [] };
+          })
+        );
+
+        if (!isMountedRef.current || requestId !== requestIdRef.current) {
+          return;
+        }
+
+        setTrendData(aggregateWeeklyCounts(weeklyData, 12, referenceDate));
+        setRecentLoops(buildRecentLoopInsights(weeklyData, 3, referenceDate));
+        setError(null);
+        hasLoadedRef.current = true;
       } catch (err) {
-        if (!isCancelled) {
-          setError(err.response?.data?.detail || "Failed to load analysis.");
+        if (!isMountedRef.current || requestId !== requestIdRef.current) {
+          return;
         }
+
+        setError(err.response?.data?.detail || "Failed to load analysis.");
       } finally {
-        if (!isCancelled) {
-          setIsLoading(false);
+        if (!isMountedRef.current || requestId !== requestIdRef.current) {
+          return;
         }
+
+        setIsLoading(false);
+        setIsRefreshing(false);
       }
+    },
+    [fetchLoops, fetchSummary, fetchTodayCheckins, referenceDate]
+  );
+
+  useEffect(() => {
+    if (!isAnalysisActive) {
+      return;
     }
 
-    loadAnalysis();
+    loadAnalysis({
+      silent: hasLoadedRef.current,
+      syncCollections: !hasLoadedRef.current,
+      sourceLoops: loopsRef.current,
+    });
+  }, [analysisKey, isAnalysisActive, loadAnalysis, serverDate]);
+
+  useEffect(() => {
+    if (!isAnalysisActive) {
+      return undefined;
+    }
+
+    const intervalId = setInterval(() => {
+      loadAnalysis({ silent: true, syncCollections: true });
+    }, 60000);
+
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active") {
+        loadAnalysis({ silent: true, syncCollections: true });
+      }
+    });
 
     return () => {
-      isCancelled = true;
+      clearInterval(intervalId);
+      subscription.remove();
     };
-  }, [fetchLoops, fetchSummary, serverDate]);
+  }, [isAnalysisActive, loadAnalysis]);
 
   return (
     <SafeAreaView className="flex-1 bg-[#050508]">
@@ -103,8 +248,8 @@ export default function Analysis() {
           ) : (
             <CompletionRing
               percentage={completionRate}
-              activeLoops={summary?.total_loops ?? 0}
-              streak={summary?.best_streak_overall ?? 0}
+              activeLoops={summary?.total_loops ?? loops.length}
+              streak={summary?.current_streak_overall ?? 0}
             />
           )}
         </View>
@@ -116,9 +261,11 @@ export default function Analysis() {
               <Text className="text-white/40 text-xs mt-1">Last 12 weeks performance</Text>
             </View>
             <View className="flex-row items-center bg-[#1A1C24] px-3 py-1.5 rounded-full">
-              <View className="w-2 h-2 rounded-full bg-[#4F8EF7] mr-2" />
+              <View
+                className={`w-2 h-2 rounded-full mr-2 ${isRefreshing ? "bg-[#FFD88B]" : "bg-[#4F8EF7]"}`}
+              />
               <Text className="text-white/60 text-[10px] font-bold tracking-widest uppercase">
-                Live
+                {isRefreshing ? "Syncing" : "Live"}
               </Text>
             </View>
           </View>
@@ -148,7 +295,7 @@ export default function Analysis() {
         </View>
 
         <View className="mb-4 px-2">
-          <Text className="text-white text-xl font-bold tracking-tight">Recent Loop Detail</Text>
+          <Text className="text-white text-xl font-bold tracking-tight">Recent Loop Details</Text>
         </View>
 
         {recentLoops.length ? (

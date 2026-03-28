@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  InteractionManager,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -203,6 +205,10 @@ export default function CreateLoopScreen() {
   }
 
   async function handleCreateLoop() {
+    if (isSubmitting) {
+      return;
+    }
+
     const trimmedName = name.trim();
 
     if (!trimmedName) {
@@ -225,6 +231,7 @@ export default function CreateLoopScreen() {
     }
 
     setError("");
+    Keyboard.dismiss();
     setIsSubmitting(true);
 
     const result = await createLoop({
@@ -248,9 +255,23 @@ export default function CreateLoopScreen() {
       return;
     }
 
-    await fetchSummary();
-    setIsSubmitting(false);
-    router.replace(`/loops/${result.loop.id}`);
+    const nextLoopId = result.loop?.id;
+
+    if (!nextLoopId) {
+      setError("Loop was created, but opening it failed. You can find it in My Loops.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    InteractionManager.runAfterInteractions(() => {
+      try {
+        router.replace(`/loops/${nextLoopId}`);
+        void fetchSummary();
+      } catch {
+        setError("Loop was created, but opening it failed. You can find it in My Loops.");
+        setIsSubmitting(false);
+      }
+    });
   }
 
   return (
