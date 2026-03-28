@@ -14,7 +14,7 @@ export default function GreetingHeader({ user }) {
         <Text className="text-white text-[42px] font-black leading-[44px] tracking-tight">
           {firstName}
         </Text>
-        <View className="w-14 h-14 rounded-full bg-[#162032] items-center justify-center border border-white/10 overflow-hidden shadow-lg shadow-black/50">
+        <View className="w-16 h-16 rounded-full bg-[#162032] items-center justify-center border border-white/10 overflow-hidden shadow-lg shadow-black/50">
           {avatarUrl ? (
             <Image 
               source={{ uri: avatarUrl }} 
