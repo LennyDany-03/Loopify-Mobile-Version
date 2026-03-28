@@ -1,4 +1,4 @@
-import { ActivityIndicator, Animated, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Animated, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions, Image } from "react-native";
 import { Redirect, Tabs } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useRef } from "react";
@@ -22,16 +22,19 @@ const TAB_META = {
     icon: "google-analytics",
     type: "material",
   },
-  settings: {
-    title: "SETTINGS",
-    icon: "settings-sharp",
-    type: "ionicons",
+  profile: {
+    isProfile: true,
   },
 };
 
 function CustomTabBar({ state, navigation }) {
   const layout = useWindowDimensions();
   const setTabIndex = useNavStore((store) => store.setTabIndex);
+  const user = useAuthStore((state) => state.user);
+  
+  const avatarUrl = user?.picture || user?.avatar_url || user?.profile_pic;
+  const initial = user?.full_name?.split(" ")[0]?.charAt(0).toUpperCase() || "L";
+
   const animatedIndex = useRef(new Animated.Value(state.index)).current;
   const inputRange = useMemo(
     () => state.routes.map((_, routeIndex) => routeIndex),
@@ -117,7 +120,15 @@ function CustomTabBar({ state, navigation }) {
                 activeOpacity={0.7}
               >
                 <View style={styles.tabContainer}>
-                  {meta.type === "material" ? (
+                  {meta.isProfile ? (
+                    <View className={`w-[38px] h-[38px] rounded-full items-center justify-center overflow-hidden border ${focused ? 'border-white' : 'border-white/20'}`}>
+                      {avatarUrl ? (
+                         <Image source={{ uri: avatarUrl }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                      ) : (
+                         <Text className={`text-[12px] font-black ${focused ? 'text-white' : 'text-white/60'} pt-[2px]`}>{initial}</Text>
+                      )}
+                    </View>
+                  ) : meta.type === "material" ? (
                     <MaterialCommunityIcons
                       name={meta.icon}
                       size={route.name === "loops" ? 24 : 20}
@@ -130,9 +141,12 @@ function CustomTabBar({ state, navigation }) {
                       color={focused ? "#FFFFFF" : "rgba(255, 255, 255, 0.4)"}
                     />
                   )}
-                  <Text style={[styles.tabLabel, { color: focused ? "#FFFFFF" : "rgba(255, 255, 255, 0.4)" }]}>
-                    {meta.title}
-                  </Text>
+                  
+                  {!meta.isProfile && (
+                    <Text style={[styles.tabLabel, { color: focused ? "#FFFFFF" : "rgba(255, 255, 255, 0.4)" }]}>
+                      {meta.title}
+                    </Text>
+                  )}
                 </View>
               </TouchableOpacity>
             );
@@ -173,7 +187,7 @@ export default function TabLayout() {
       <Tabs.Screen name="dashboard" />
       <Tabs.Screen name="loops" />
       <Tabs.Screen name="analysis" />
-      <Tabs.Screen name="settings" />
+      <Tabs.Screen name="profile" />
     </Tabs>
   );
 }
