@@ -26,6 +26,7 @@ import {
   formatNumericValue,
   formatWeekLabel,
   getLoopDescription,
+  getTodayLoopEntry,
   getTodayLoopProgress,
   isLoopCompletedToday,
 } from "../../lib/utils/loopMetrics";
@@ -200,6 +201,37 @@ function getUndoCopy(loop, progress, isCompletedToday) {
   };
 }
 
+function buildOptimisticTodayEntry(loop, progress, serverDate) {
+  if (!loop) {
+    return null;
+  }
+
+  const fallbackDate = serverDate || new Date().toISOString().slice(0, 10);
+
+  if (loop.target_type === "boolean") {
+    return {
+      ...progress.entry,
+      loop_id: loop.id,
+      date: progress.entry?.date || fallbackDate,
+      value: 1,
+      completed: true,
+    };
+  }
+
+  const target = Number(progress.target ?? loop.target_value ?? 0);
+  const currentValue = Number(progress.rawValue ?? progress.value ?? 0);
+  const safeValue = Number.isFinite(currentValue) ? Math.max(currentValue, 0) : 0;
+  const nextValue = target > 0 ? Math.min(safeValue + 1, target) : safeValue + 1;
+
+  return {
+    ...progress.entry,
+    loop_id: loop.id,
+    date: progress.entry?.date || fallbackDate,
+    value: nextValue,
+    completed: target > 0 ? nextValue >= target : !!progress.entry?.completed,
+  };
+}
+
 function StatusPill({ label, tone = "#DDE8FF", background = "#08111D", border = "#FFFFFF24" }) {
   return (
     <View
@@ -359,8 +391,10 @@ export default function LoopDetail() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUndoing, setIsUndoing] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [isRevokeModalVisible, setIsRevokeModalVisible] = useState(false);
+  const [optimisticTodayEntry, setOptimisticTodayEntry] = useState(null);
   const [error, setError] = useState(null);
 
   const hasLoopRef = useRef(false);
@@ -465,15 +499,25 @@ export default function LoopDetail() {
   }, [loadLoopDetail, serverDate]);
 
   async function handleComplete() {
+    if (!loopId || !loop || isCompleting || isUndoing || isDeleting) {
+      return { success: false };
+    }
+
+    setIsCompleting(true);
+    setOptimisticTodayEntry(buildOptimisticTodayEntry(loop, todayProgress, serverDate));
+
     const incrementValue = loop?.target_type === "boolean" ? null : 1;
     const result = await checkinLoop(loopId, incrementValue);
 
     if (result.success) {
-      await Promise.all([fetchSummary(), fetchTodayCheckins()]);
-      await loadLoopDetail({ silent: true });
+      setOptimisticTodayEntry(null);
+      setIsCompleting(false);
+      void Promise.allSettled([fetchSummary(), loadLoopDetail({ silent: true })]);
       return result;
     }
 
+    setOptimisticTodayEntry(null);
+    setIsCompleting(false);
     Alert.alert("Check-in failed", result.error || "Unable to log progress right now.");
     return result;
   }
@@ -553,15 +597,20 @@ export default function LoopDetail() {
   }
 
   const accentColor = loop.color || "#72A6FF";
-  const todayProgress = getTodayLoopProgress(loop, todayCheckins);
-  const todayEntry = todayProgress.entry;
-  const isCompletedToday = isLoopCompletedToday(loop, todayCheckins);
-  const canUndoToday = !!todayEntry;
+  const todayCheckinKey = loop?.id ? String(loop.id) : loopId ? String(loopId) : null;
+  const effectiveTodayCheckins =
+    optimisticTodayEntry && todayCheckinKey
+      ? { ...todayCheckins, [todayCheckinKey]: optimisticTodayEntry }
+      : todayCheckins;
+  const todayProgress = getTodayLoopProgress(loop, effectiveTodayCheckins);
+  const actualTodayEntry = getTodayLoopEntry(loop, todayCheckins);
+  const isCompletedToday = isLoopCompletedToday(loop, effectiveTodayCheckins);
+  const canUndoToday = !!actualTodayEntry?.id;
   const todayPercent = todayProgress.percent || 0;
   const progressLabel = getTodayProgressLabel(loop, todayProgress);
   const recentCheckins = weeklyBars.reduce((sum, item) => sum + (item.count || 0), 0);
   const activeWeeks = weeklyBars.filter((item) => item.count > 0).length;
-  const loopDescription = getLoopDescription(loop, todayCheckins);
+  const loopDescription = getLoopDescription(loop, effectiveTodayCheckins);
   const swipeHint = getSwipeHint(loop);
   const remainingLabel = getRemainingLabel(loop, todayProgress, isCompletedToday);
   const undoCopy = getUndoCopy(loop, todayProgress, isCompletedToday);
@@ -949,7 +998,9 @@ export default function LoopDetail() {
           style={READABLE_TEXT_STYLE}
         >
           {isCompletedToday
-            ? "Today is secured. Undo is available below if needed."
+            ? canUndoToday
+              ? "Today is secured. Undo is available below if needed."
+              : "Today is secured."
             : loop.target_type === "boolean"
               ? "Complete this loop to keep the streak alive."
               : "Swipe to build today's progress in real time."}
@@ -967,7 +1018,7 @@ export default function LoopDetail() {
               : "Target reached for today"
           }
           accentColor={accentColor}
-          disabled={isUndoing || isDeleting}
+          disabled={isUndoing || isDeleting || isCompleting}
         />
       </View>
 

@@ -183,14 +183,6 @@ export default function SettingsScreen() {
             </View>
             <Feather name="chevron-right" size={18} color="rgba(255,255,255,0.3)" />
           </TouchableOpacity>
-
-          <TouchableOpacity className="flex-row items-center justify-between p-5" activeOpacity={0.7}>
-            <View className="flex-row items-center gap-4">
-              <MaterialCommunityIcons name="lock" size={20} color="rgba(255,255,255,0.7)" />
-              <Text className="text-white font-bold text-[15px]">Change Password</Text>
-            </View>
-            <Feather name="chevron-right" size={18} color="rgba(255,255,255,0.3)" />
-          </TouchableOpacity>
         </View>
 
         <SectionTitle title="Notifications" />
@@ -210,19 +202,6 @@ export default function SettingsScreen() {
             />
           </View>
 
-          <View className="flex-row items-center justify-between p-5">
-            <View>
-              <Text className="text-white font-bold text-[15px]">Smart Pings</Text>
-              <Text className="text-white/40 text-[11px] mt-1 font-medium">AI-driven activity nudges</Text>
-            </View>
-            <Switch
-              value={smartPings}
-              onValueChange={setSmartPings}
-              trackColor={{ false: "#1E222E", true: "#7DA7FF" }}
-              thumbColor={smartPings ? "#14366D" : "#5B6175"}
-              ios_backgroundColor="#1E222E"
-            />
-          </View>
         </View>
 
         <SectionTitle title="App Preferences" />

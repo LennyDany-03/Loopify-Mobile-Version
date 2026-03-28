@@ -33,6 +33,7 @@ export default function SlideToComplete({
   const pan = useRef(new Animated.ValueXY()).current;
   const fadeAnim = useRef(new Animated.Value(isCompleted ? 1 : 0)).current;
   const scaleAnim = useRef(new Animated.Value(isCompleted ? 1 : 0.5)).current;
+  const isCompletedRef = useRef(isCompleted);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const screenWidth = Dimensions.get("window").width;
@@ -52,19 +53,34 @@ export default function SlideToComplete({
     onPanResponderMove: Animated.event([null, { dx: pan.x }], { useNativeDriver: false }),
     onPanResponderRelease: (event, gesture) => {
       if (gesture.dx > maxSlide * 0.6) {
-        Animated.spring(pan, {
+        setIsSubmitting(true);
+
+        Animated.timing(pan, {
           toValue: { x: maxSlide, y: 0 },
+          duration: 90,
           useNativeDriver: false,
-        }).start(async () => {
-          setIsSubmitting(true);
+        }).start();
+
+        void (async () => {
+          let result = null;
 
           try {
-            await onComplete?.();
+            result = await onComplete?.();
           } finally {
-            setIsSubmitting(false);
-            resetThumb();
+            if (!result?.success && !isCompletedRef.current) {
+              resetThumb();
+            }
+
+            if (!isCompletedRef.current) {
+              setIsSubmitting(false);
+            }
           }
-        });
+
+          if (result?.success && !isCompletedRef.current) {
+            resetThumb();
+            setIsSubmitting(false);
+          }
+        })();
       } else {
         resetThumb();
       }
@@ -72,7 +88,12 @@ export default function SlideToComplete({
   });
 
   useEffect(() => {
+    isCompletedRef.current = isCompleted;
+  }, [isCompleted]);
+
+  useEffect(() => {
     if (isCompleted) {
+      setIsSubmitting(false);
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -88,9 +109,13 @@ export default function SlideToComplete({
       return;
     }
 
+    if (!isSubmitting) {
+      pan.setValue({ x: 0, y: 0 });
+    }
+
     fadeAnim.setValue(0);
     scaleAnim.setValue(0.5);
-  }, [fadeAnim, isCompleted, scaleAnim]);
+  }, [fadeAnim, isCompleted, isSubmitting, pan, scaleAnim]);
 
   if (isCompleted) {
     return (
@@ -137,9 +162,7 @@ export default function SlideToComplete({
       />
 
       <View style={styles.trackTextWrap}>
-        <Text style={styles.trackText}>
-          {isSubmitting ? "Logging progress..." : trackLabel}
-        </Text>
+        <Text style={styles.trackText}>{trackLabel}</Text>
         {!!progressLabel && <Text style={styles.progressText}>{progressLabel}</Text>}
       </View>
 
@@ -158,15 +181,11 @@ export default function SlideToComplete({
                 }),
               },
             ],
-            opacity: isSubmitting || disabled ? 0.7 : 1,
+            opacity: isSubmitting || disabled ? 0.82 : 1,
           },
         ]}
       >
-        {isSubmitting ? (
-          <Feather name="loader" size={18} color="#08111D" />
-        ) : (
-          <Feather name="chevron-right" size={24} color="#08111D" />
-        )}
+        <Feather name={isSubmitting ? "check" : "chevron-right"} size={isSubmitting ? 20 : 24} color="#08111D" />
       </Animated.View>
     </View>
   );
